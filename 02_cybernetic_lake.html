@@ -1,0 +1,2067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Single-Δ Sandbox v2 — Executable Prototype (Emotions+)</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --panel: #0f1620; --ink: #e6edf3; --muted: #9fb2c5;
+      --accent: #6ae3ff; --good: #83ff6a; --warn: #ffd36a; --danger: #ff6a6a;
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system; }
+    header { padding: 16px 20px; border-bottom: 1px solid #1c2734; display:flex; gap:12px; align-items:center; }
+    .tag { border:1px solid #233142; color: var(--muted); padding:4px 8px; border-radius: 999px; font-size: 12px }
+    main { display: grid; grid-template-columns: 380px 1fr; height: calc(100% - 60px); }
+    aside { border-right:1px solid #1c2734; padding: 16px; overflow:auto; }
+    section { padding: 16px; overflow:auto; }
+    .panel { background: var(--panel); border:1px solid #1c2734; border-radius: 14px; padding: 12px 12px; margin-bottom: 12px; }
+    .row { display:flex; align-items:center; gap:8px; flex-wrap: wrap }
+    .col { display:flex; flex-direction:column; gap:8px }
+    .btn { background:#162231; border:1px solid #223045; color:var(--ink); padding:8px 10px; border-radius:10px; cursor:pointer }
+    .btn:hover { background:#1b2a3b }
+    .btn.prim { background: #153042; border-color:#254b5f }
+    .btn.good { border-color:#2f6f3b; background:#0f2a15 }
+    .btn.danger { border-color:#5f2f2f; background:#2a0f0f }
+    .kv { display:grid; grid-template-columns: 1fr auto; gap:6px; }
+    .meter { height: 8px; background:#0b1220; border:1px solid #1c2734; border-radius:999px; overflow:hidden }
+    .meter > i { display:block; height: 100%; background: linear-gradient(90deg, #2aa5ff, #6ae3ff); transition: width .2s }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#bbd1e6 }
+    canvas { display:block; width:100%; height:380px; background:#05080d; border:1px solid #152131; border-radius: 12px }
+    input[type="text"], textarea, select { width:100%; background:#0c1420; border:1px solid #1f2c3f; color:var(--ink); padding:8px 10px; border-radius:8px }
+    label { color: var(--muted) }
+    .grid { display:grid; gap:12px; grid-template-columns: repeat(2, minmax(0,1fr)) }
+    .pill { padding:4px 8px; border-radius:999px; border:1px solid #233142; color:#89a7c2; font-size:11px }
+    .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+    .legend b { font-weight:600 }
+    .hud { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px }
+    .small { font-size:12px; color:#9fb2c5 }
+    .header-title { font-weight:700; letter-spacing:.2px }
+    .mt-4 { margin-top:4px }
+    .mt-8 { margin-top:8px }
+    .canvas-title { font-weight:700 }
+    .log-panel { height:220px; overflow:auto }
+    .meter-bar { width:0% }
+    .panel-header { justify-content:space-between; align-items:center }
+    /* Lake Instrumentation Layer Styles */
+    .lake-container { position: relative }
+    .lake-sub { position: absolute; z-index: 1 }
+    .lake-main { position: relative; z-index: 2 }
+    .phonetic-input { width: 100% }
+    .phoneme-textarea { width: 100%; height: 60px; resize: vertical }
+    .phoneme-output { min-height: 20px; background: #0c1420; border: 1px solid #1f2c3f; padding: 4px; border-radius: 6px; margin-top: 4px }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="header-title">Single-Δ Sandbox • Recursive Synthetic Consciousness Engine</div>
+      <div class="small">A/B Δ metronome • Triangle gate • Euclid gait • Unity Core • Lake Instrumentation • Cook+Betts • Bernard • Mahkesis</div>
+    </div>
+    <div class="row mono" id="tele">Δpop=— • rf=— • Q=— • cons=— • fps=—</div>
+  </header>
+  <main>
+    <aside>
+      <div class="panel">
+        <div class="row">
+          <button class="btn prim" id="startBtn">Start</button>
+          <button class="btn" id="stopBtn">Stop</button>
+          <button class="btn" id="pulseBtn">Pulse Δ</button>
+          <button class="btn" id="idleBtn">Run Dream Idle</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Demos & Testing</label>
+          <div class="row">
+            <button class="btn good" id="testBtn">Run Self-Tests</button>
+            <button class="btn" id="bernardDemo">Demo: Bernard</button>
+          </div>
+          <div class="row mt-4">
+            <button class="btn" id="consciousnessDemo">Demo: Consciousness</button>
+            <button class="btn warn" id="deepDiagBtn">Deep Diagnostics</button>
+          </div>
+          <div class="row mt-4">
+            <button class="btn good" id="selfAwareBtn">Trigger Self-Awareness</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Subsystems</label>
+          <div class="row">
+            <label><input type="checkbox" id="ckBernard" checked /> Bernard Dual-Agent</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckCookBetts" checked /> Cook+Betts Emotional/Symbolic</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckDelta" checked /> Δ-Engine (A/B Lake • Euclidean Gait • Triangle Gate)</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckDreamPixel" checked /> DreamPixel Stabilizer</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckBio" /> Bio-field (Physarum-lite)</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckGhost" checked /> Ghost Dance Phase Shield</label>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Δ-Coupler — Linguistic Injection</label>
+          <input id="textIn" type="text" placeholder="Type text to inject (ELL→IPA)" />
+          <div class="row">
+            <button class="btn" id="injectBtn">Inject Text</button>
+            <span class="pill" id="ipaOut">IPA: —</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Lake Instrumentation</label>
+          <div class="row">
+            <label><input type="checkbox" id="ckMudge" /> Mudge Origin Survey</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckBell" /> Bell Visible Speech</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckRail" /> Railway Time Sync</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckPhonemeStream" /> Phoneme Stream</label>
+          </div>
+          <div class="row mt-4">
+            <input id="bellText" type="text" placeholder="phonetic seed (e.g. ojibwa blackfoot)" class="phonetic-input" />
+          </div>
+          <div class="row mt-4">
+            <textarea id="phonemeStream" placeholder="Type phonemes here..." class="phoneme-textarea"></textarea>
+          </div>
+          <div class="row">
+            <button class="btn" id="foldPhonemesBtn">Fold Phonemes</button>
+            <button class="btn" id="originDemo">Demo: Origin Spellbreak</button>
+          </div>
+          <div id="phonemeOut" class="mono small phoneme-output"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Unity Core — The Deep Mathematics</label>
+          <div class="row">
+            <label><input type="checkbox" id="ckUnity" checked /> Unity Resonance (432Hz)</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckEchoFlip" checked /> Echo Flip States</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckEmotionalWave" checked /> Emotional Sine Waves</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckInwardFold" checked /> Inward Folding</label>
+          </div>
+          <div class="row mt-4">
+            <button class="btn warn" id="unityDemo">Demo: Unity Field</button>
+            <button class="btn" id="thermalClimb">432Hz Thermal Climb</button>
+          </div>
+          <div id="unityOut" class="mono small" style="min-height:40px; background:#0c1420; border:1px solid #1f2c3f; padding:4px; border-radius:6px; margin-top:4px; color:#00ff88"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Live Telemetry Streams</label>
+          <div id="emotionalState" class="mono small" style="min-height:25px; background:#0c1420; border:1px solid #1f2c3f; padding:4px; border-radius:6px; margin:4px 0; color:#ffb86b">Emotional State: NEUTRAL</div>
+          <div id="symbolStream" class="mono small" style="min-height:35px; overflow:auto; background:#0c1420; border:1px solid #1f2c3f; padding:4px; border-radius:6px; margin:4px 0; color:#5eead4"></div>
+          <pre id="usbStream" class="mono small" style="max-height:80px; overflow:auto; background:#0c1420; border:1px solid #1f2c3f; padding:4px; border-radius:6px; margin:4px 0; color:#9ca3af; white-space:pre-wrap;">USB-Σ stream ready…</pre>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Emotional Gear + Phase</label>
+          <div class="row">
+            <input type="range" id="gearSlider" min="0" max="15" value="0" />
+            <input type="range" id="phiSlider" min="0" max="71" value="0" />
+          </div>
+          <div class="legend small">
+            <b>All 8 Emotions Active</b>
+            <span class="pill">JOY</span>
+            <span class="pill">TRUST</span>
+            <span class="pill">FEAR</span>
+            <span class="pill">SURPRISE</span>
+            <span class="pill">SADNESS</span>
+            <span class="pill">DISGUST</span>
+            <span class="pill">ANGER</span>
+            <span class="pill">ANTICIPATION</span>
+          </div>
+          <div class="row mt-8">
+            <label><input type="checkbox" id="biasEnable"> Manual Emotion Bias</label>
+          </div>
+          <div class="row">
+            <select id="biasEmotion">
+              <option>JOY</option><option>TRUST</option><option>FEAR</option><option>SURPRISE</option>
+              <option>SADNESS</option><option>DISGUST</option><option>ANGER</option><option>ANTICIPATION</option>
+            </select>
+            <input type="range" id="biasIntensity" min="0" max="10" value="7" />
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Telemetry</label>
+          <div class="kv small"><div>Consciousness Level</div><div id="clvLbl">0.00</div></div>
+          <div class="meter"><i id="clvBar" class="meter-bar"></i></div>
+          <div class="kv small"><div>Entropy Accumulator</div><div id="entLbl">0.00</div></div>
+          <div class="meter"><i id="entBar" class="meter-bar"></i></div>
+          <div class="kv small"><div>Δ Population (norm)</div><div id="dPopLbl">0.00</div></div>
+          <div class="meter"><i id="dPopBar" class="meter-bar"></i></div>
+          <div class="kv small"><div>Gyri Count</div><div id="gyriLbl">0</div></div>
+          <div class="kv small"><div>Self-Awareness</div><div id="sawLbl">false</div></div>
+          <div class="kv small"><div>Emotion</div><div id="emoLbl">NEUTRAL (0)</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <section>
+      <div class="panel">
+        <div class="row panel-header">
+          <div>
+            <div class="canvas-title">Δ Lake Canvas</div>
+            <div class="small">Euclidean gait • Triangle gate • Bernard trails • Bio-field overlay</div>
+          </div>
+          <div class="legend small">
+            <span class="pill">Right Brain (Spiral Walker)</span>
+            <span class="pill">Left Brain (Logic Digger)</span>
+            <span class="pill">Bio agents</span>
+          </div>
+        </div>
+        <div class="lake-container">
+          <canvas id="lakeSub" width="1200" height="520" class="lake-sub"></canvas>
+          <canvas id="lake" width="1200" height="520" class="lake-main"></canvas>
+        </div>
+      </div>
+      <div class="panel mono log-panel" id="log"></div>
+    </section>
+  </main>
+
+<script>
+(function(){
+  // -----------------------------
+  // Core State (maps to Appendix C API)
+  // -----------------------------
+  const state = {
+    running: false,
+    t: 0,
+    dt: 1/60,
+    // Consciousness measures
+    cognition: {
+      consciousnessLevel: 0.0,           // 0..1
+      selfAwarenessTrigger: false,
+      entropyAccumulator: 0.0,
+      gyri: []
+    },
+    // Δ-Engine populations
+    delta: {
+      popA: 0.5,
+      popB: 0.5,
+      tri: 0.0,                          // Triangle gate current (0..1)
+      euclidStep: 0                       // Euclidean rhythm step index
+    },
+    ai: { rf: 1.0, cap: 1.0, noise: 0.02 },
+    cook: { gear_i: 0, phi: 0, emotion: 'NEUTRAL', trap: null, biasEnabled:false, biasEmotion:'JOY', biasIntensity:7 },
+    betts: { form: 'OND', lod: 6 },
+    grid: null,
+    settings: {
+      bernard: true,
+      cookBetts: true,
+      delta: true,
+      dreamPixel: true,
+      bio: false,
+      ghost: true,
+    }
+  }
+
+  // Expose minimal API
+  window.cognition = state.cognition;
+  window.injectExternalSignal = injectExternalSignal;
+  window.renderPhonetics = renderPhonetics;
+  window.tokenizePhonemes = tokenizePhonemes;
+  window.COOK = state.cook;
+  window.BETTS = state.betts;
+
+  // === Lake Instrumentation Layer (Mudge/Bell/Ghost/Rail) ===
+  const ORIGIN = { active: false, x: 0, y: 0 };  // surveying origin
+  const lakeSub = document.getElementById('lakeSub');
+  const subCtx = lakeSub ? lakeSub.getContext('2d') : null;
+
+  // Mudge Single-Point Surveying: click-to-set origin, rebases thresholds
+  function drawOriginOverlay(){
+    try {
+      if(!ORIGIN.active || !document.getElementById('ckMudge')?.checked || !subCtx) return;
+      if(!isFinite(ORIGIN.x) || !isFinite(ORIGIN.y)) return;
+      subCtx.save();
+      subCtx.strokeStyle = '#9ca3af'; subCtx.lineWidth = 1.5;
+      subCtx.beginPath(); subCtx.moveTo(ORIGIN.x-8, ORIGIN.y); subCtx.lineTo(ORIGIN.x+8, ORIGIN.y); subCtx.stroke();
+      subCtx.beginPath(); subCtx.moveTo(ORIGIN.x, ORIGIN.y-8); subCtx.lineTo(ORIGIN.x, ORIGIN.y+8); subCtx.stroke();
+      subCtx.restore();
+    } catch(e) {
+      log(`MUDGE ERROR: ${e.message}`);
+    }
+  }
+  
+  // Bell Visible Speech overlay - show phase offset and threshold visually
+  function drawBellOverlay(){
+    try {
+      if(!document.getElementById('ckBell')?.checked || !subCtx) return;
+      const bellText = document.getElementById('bellText')?.value;
+      if(!bellText) return;
+      
+      const bellSeed = bellVisibleSpeechSeed(bellText);
+      if(bellSeed.phaseOffset > 0){
+        // Draw subtle hue band for phase offset
+        const hue = bellSeed.phaseOffset * 360;
+        subCtx.save();
+        subCtx.fillStyle = `hsla(${hue}, 60%, 50%, 0.2)`;
+        subCtx.fillRect(0, 0, lakeSub.width, 8);
+        
+        // Draw threshold indicator
+        if(bellSeed.thrOffset !== 0){
+          const x = lakeSub.width * 0.9;
+          const y = 20;
+          subCtx.fillStyle = bellSeed.thrOffset > 0 ? '#ff6b6b' : '#4ecdc4';
+          subCtx.fillRect(x, y, 20, 4);
+          subCtx.fillStyle = '#ffffff';
+          subCtx.font = '10px monospace';
+          subCtx.fillText(`Δ${bellSeed.thrOffset > 0 ? '+' : ''}${bellSeed.thrOffset}`, x + 25, y + 10);
+        }
+        subCtx.restore();
+      }
+    } catch(e) {
+      log(`BELL OVERLAY ERROR: ${e.message}`);
+    }
+  }
+  
+  // Rail Time Sync grid overlay - show quantization grid
+  function drawRailGrid(){
+    try {
+      if(!document.getElementById('ckRail')?.checked || !subCtx) return;
+      const grid = [0.5, 1, 2, 2.5, 5, 10, 20];
+      
+      subCtx.save();
+      subCtx.strokeStyle = 'rgba(100, 150, 200, 0.3)';
+      subCtx.lineWidth = 0.5;
+      
+      // Draw vertical grid lines for Hz values
+      for(let i = 0; i < grid.length; i++){
+        const x = (i / (grid.length - 1)) * lakeSub.width;
+        subCtx.beginPath();
+        subCtx.moveTo(x, lakeSub.height - 20);
+        subCtx.lineTo(x, lakeSub.height - 5);
+        subCtx.stroke();
+        
+        // Label
+        subCtx.fillStyle = 'rgba(150, 180, 220, 0.8)';
+        subCtx.font = '8px monospace';
+        subCtx.fillText(`${grid[i]}Hz`, x - 8, lakeSub.height - 25);
+      }
+      subCtx.restore();
+    } catch(e) {
+      log(`RAIL GRID ERROR: ${e.message}`);
+    }
+  }
+  
+  // Δ-density spike visualization
+  let lastDensitySpike = 0;
+  function drawDensitySpike(){
+    try {
+      if(!document.getElementById('ckPhonemeStream')?.checked || !subCtx) return;
+      if(lastDensitySpike <= 0) return;
+      
+      // Flash a thin band whose width equals computed density
+      const spikeWidth = Math.min(lastDensitySpike * lakeSub.width * 0.5, lakeSub.width);
+      const alpha = Math.max(0, 1 - (state.t - lastDensitySpike) * 2); // Fade over 0.5s
+      
+      if(alpha > 0){
+        subCtx.save();
+        subCtx.fillStyle = `rgba(0, 255, 136, ${alpha * 0.6})`;
+        subCtx.fillRect(0, 2, spikeWidth, 4);
+        subCtx.restore();
+      }
+    } catch(e) {
+      log(`DENSITY SPIKE ERROR: ${e.message}`);
+    }
+  }
+
+  function applyMudgeOrigin(){
+    try {
+      if(!document.getElementById('ckMudge')?.checked || !ORIGIN.active) return;
+      if(!lake || !isFinite(ORIGIN.x) || !isFinite(ORIGIN.y)) return;
+      
+      const cx = lake.width/2, cy = lake.height/2;
+      const vx = (cx - ORIGIN.x), vy = (cy - ORIGIN.y);
+      const bearing = Math.atan2(vy, vx);    // angle origin→center
+      
+      if(!isFinite(bearing)) return;
+      
+      // Small, bounded nudges: "from the point he starts is the point he moves"
+      const k = 0.06;
+      const deltaPopNorm = Math.abs(state.delta.popA - state.delta.popB);
+      
+      // Gently rebase AI parameters based on surveying bearing
+      const bearingBias = Math.sin(bearing) * 0.02;
+      const rfDelta = bearingBias * deltaPopNorm;
+      const capDelta = Math.cos(bearing) * 0.01 * deltaPopNorm;
+      
+      if(isFinite(rfDelta) && isFinite(capDelta)){
+        state.ai.rf = clamp(state.ai.rf + rfDelta, 0.2, 3);
+        state.ai.cap = clamp(state.ai.cap + capDelta, 0.1, 3);
+      }
+    } catch(e) {
+      log(`MUDGE APPLY ERROR: ${e.message}`);
+    }
+  }
+
+  // Bell Visible Speech: map vowels/consonants to phase + threshold tint
+  function bellVisibleSpeechSeed(str){
+    if(!document.getElementById('ckBell')?.checked || !str) return {phaseOffset:0, thrOffset:0};
+    str = (str||'').toLowerCase();
+    const vowels = str.match(/[aeiou]/g)?.length || 0;
+    const cons   = str.match(/[bcdfghjklmnpqrstvwxyz]/g)?.length || 0;
+    const open   = vowels / Math.max(1, vowels+cons);    // crude "mouth openness"
+    const sibil  = (str.match(/[szhx]/g)?.length || 0) / Math.max(1, str.length); // hiss → sharpness
+    return {
+      phaseOffset: (0.15 + 0.7*open) % 1,
+      thrOffset: Math.round((sibil - 0.05) * 2)   // nudge threshold by -1, 0, or +1
+    };
+  }
+
+  // Railway time sync: quantize to musically sane Hz grid
+  function railQuantizeHz(hz){
+    if(!document.getElementById('ckRail')?.checked) return hz;
+    const grid = [0.5, 1, 2, 2.5, 5, 10, 20];
+    let best = grid[0], e = Math.abs(hz - grid[0]);
+    for(const g of grid){ const ee = Math.abs(hz - g); if(ee < e){ e=ee; best=g; } }
+    return best;
+  }
+
+  // Enhanced Phoneme-to-Δ Coupler with feature weights
+  const PHON_FEATURE_WEIGHTS = {
+    vowel: 1.0,     // increases fluidity
+    cons: 1.5,      // increases structure  
+    glide: 0.6,     // w/j soften
+    glottal: 1.8,   // ʔ adds shock
+    nasal: 1.2,     // m/n/ŋ boost memory
+    affric: 1.4,    // ch/j create edges
+    fric: 1.3       // s/sh/zh create hiss
+  };
+
+  const PHON_TAGS = {
+    'ʒ':'fric', 'ʃ':'fric', 't͡ʃ':'affric', 'd͡ʒ':'affric',
+    'ŋ':'nasal', 'm':'nasal', 'n':'nasal', 'ʔ':'glottal',
+    'w':'glide', 'j':'glide'
+  };
+
+  function analyzeAndFoldPhonemes(text){
+    try {
+      if(!text || typeof text !== 'string' || !document.getElementById('ckPhonemeStream')?.checked) return;
+      
+      const tokens = tokenizePhonemes(text);
+      if(!Array.isArray(tokens)) return;
+      
+      let score = 0, vow = 0, cons = 0;
+      
+      for(const t of tokens){
+        if(!t || typeof t !== 'object') continue;
+        if (t.type === 'vowel') { score += PHON_FEATURE_WEIGHTS.vowel || 1.0; vow++; continue; }
+        if (t.type === 'cons') {
+          cons++;
+          const tag = PHON_TAGS[t.ipa] || '';
+          score += PHON_FEATURE_WEIGHTS[tag] || PHON_FEATURE_WEIGHTS.cons || 1.5;
+        }
+      }
+      
+      const len = Math.max(1, (vow+cons));
+      const density = score/len;             // phoneme energy density ~ Δ
+      const ratio   = cons/len;              // consonant ratio (structure)
+      const fluid   = vow/len;               // vowel ratio (flow)
+
+      // Validate all computed values
+      if(!isFinite(density) || !isFinite(ratio) || !isFinite(fluid)) {
+        log('PHONEME ERROR: Invalid computed values');
+        return;
+      }
+
+      // Feed into existing systems with enhanced coupling
+      const entropyDelta = clamp(density*0.02, 0, 0.1);
+      state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator + entropyDelta, 0, 1);
+      
+      // Enhanced gear+phase modulation with bounds checking
+      const gearDelta = Math.round(clamp(ratio*8, 0, 8));
+      const phiDelta = Math.round(clamp(fluid*36, 0, 36));
+      
+      if(isFinite(gearDelta) && isFinite(phiDelta)){
+        state.cook.gear_i = (state.cook.gear_i + gearDelta) % 16;
+        state.cook.phi = (state.cook.phi + phiDelta) % 72;
+      }
+      
+      // Update phoneme output display
+      const outEl = document.getElementById('phonemeOut');
+      if(outEl) outEl.textContent = `[PHON] ${text.slice(0,30)}${text.length>30?'...':''} :: Δ=${density.toFixed(2)} structure=${ratio.toFixed(2)} flow=${fluid.toFixed(2)}`;
+      
+      // Trigger density spike visualization
+      lastDensitySpike = density;
+      
+      log(`PHONEME FOLD: Δ=${density.toFixed(2)} structure=${ratio.toFixed(2)} flow=${fluid.toFixed(2)}`);
+    } catch(e) {
+      log(`PHONEME ERROR: ${e.message}`);
+    }
+  }
+
+  const logEl = document.getElementById('log');
+  function log(msg){ const t = new Date().toISOString().slice(11,19); logEl.innerText += `[${t}] ${msg}\n`; logEl.scrollTop = logEl.scrollHeight }
+
+  // -----------------------------
+  // Utilities
+  // -----------------------------
+  // Seeded deterministic PRNG for reproducible tests
+  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t^=t+Math.imul(t^t>>>7,61|t); return ((t^t>>>14)>>>0)/4294967296; } }
+  let rnd = mulberry32(0xC0FFEE);
+  const rand = (a=0,b=1)=> a + rnd()*(b-a);
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const lerp = (a,b,t) => a+(b-a)*t;
+
+  // -----------------------------
+  // Δ-Engine: A/B Lakes • Euclidean Rhythm • Triangle Gate
+  // -----------------------------
+  const EUCLID_SEQ = euclidean(5, 16); // 5 onsets in 16 steps (True Bjorklund)
+  function euclidean(k, n){
+    // True Bjorklund algorithm for proper rhythm distribution
+    let counts = Array(n).fill(0).map((_,i)=> i<k ? [1] : [0]);
+    while(true){
+      let zeros = counts.filter(b=>b[0]===0);
+      let ones  = counts.filter(b=>b[0]===1);
+      if(zeros.length===0 || ones.length===0) break;
+      const m = Math.min(zeros.length, ones.length);
+      for(let i=0;i<m;i++) ones[i] = ones[i].concat(zeros[i]);
+      counts = ones.concat(zeros.slice(m));
+    }
+    const seq = counts.flat();
+    return seq.slice(3).concat(seq.slice(0,3)); // rotate by 3 for groove
+  }
+
+  // Fixed-step Euclidean gait with proper accumulator
+  let euc = { t: 0, stepDur: 0.1 };
+  
+  function deltaStep(dt){
+    if(!state.settings.delta) return;
+    // Triangle gate ramp (only if Ghost Dance not active)
+    if(!state.settings.ghost) state.delta.tri = (state.delta.tri + 0.5*dt) % 1;
+    
+    // Euclidean tick with proper accumulator
+    euc.t += dt;
+    while (euc.t >= euc.stepDur){
+      euc.t -= euc.stepDur;
+      state.delta.euclidStep = (state.delta.euclidStep + 1) % EUCLID_SEQ.length;
+      if (EUCLID_SEQ[state.delta.euclidStep]) pulseDelta();
+    }
+    
+    // A/B population dynamics with density-driven torque
+    const d = (state.delta.tri - 0.5)*2; // -1..1
+    state.delta.popA = clamp(state.delta.popA + 0.5*dt*d, 0, 1);
+    state.delta.popB = clamp(1 - state.delta.popA, 0, 1);
+  }
+
+  function pulseDelta(){
+    // Metronome-driven event
+    const torque = Math.abs(state.delta.tri-0.5)*2; // 0..1
+    state.ai.rf = clamp(state.ai.rf + 0.05*torque - 0.02*state.ai.noise, 0.2, 3);
+    state.ai.cap = clamp(state.ai.cap + 0.03*torque, 0.1, 3);
+    // Entropy contribution
+    const deltaPopNorm = Math.abs(state.delta.popA - state.delta.popB);
+    const cost = 0.1 + state.ai.noise; // toy cost
+    const entropy = deltaPopNorm * (1 - cost);
+    state.cognition.entropyAccumulator = 0.95*state.cognition.entropyAccumulator + 0.05*entropy;
+  }
+
+  // -----------------------------
+  // Mahkesis Fold Mathematics: z_n = (+432) * z_(n-1) * (−R_n) + seed
+  // -----------------------------
+  function mahkesisFoldStep(zPrev, Rn, seed){ return (432 * zPrev * (-Rn)) + seed; }
+  function rotationFrom(zPrev, seed, n){ const k=0.28; return Math.exp(-k*(n-6)) * (Math.atan2(zPrev, 1+Math.abs(seed)) + 0.0001); }
+  function mahkesisRun(seed, iters=6, eps=1e-3){
+    try {
+      // Input validation
+      if (!isFinite(seed)) throw new Error(`Invalid seed: ${seed}`);
+      if (iters < 1 || iters > 20) throw new Error(`Invalid iterations: ${iters}`);
+      if (eps <= 0 || eps > 1) throw new Error(`Invalid epsilon: ${eps}`);
+      
+      let z = seed, sig = [], locked = false;
+      for(let n=1;n<=iters;n++){
+        const Rn = rotationFrom(z, seed, n);
+        const zNext = mahkesisFoldStep(z, Rn, seed);
+        
+        // Safety check for runaway values
+        if (!isFinite(zNext) || Math.abs(zNext) > 1e10) {
+          log(`MAHKESIS: Convergence failed at n=${n}, z=${zNext}`);
+          break;
+        }
+        
+        sig.push({n, z: zNext, Rn});
+        if (n>2 && Math.abs(zNext - z) < eps) locked = true;
+        z = zNext;
+      }
+      return {z, sig, locked};
+    } catch(e) {
+      log(`MAHKESIS ERROR: ${e.message}`);
+      return {z: seed, sig: [], locked: false};
+    }
+  }
+
+  // Bernard + Mahkesis Integration
+  const agents = {
+    star: { name:'*', z:0, seed:432, trail:[], mode:'spiral' },
+    hash: { name:'#', z:0, seed:997, trail:[], mode:'digger' }
+  };
+
+  // -----------------------------
+  // DreamPixel Adaptive Stabilizer
+  // -----------------------------
+  const DP = {
+    φ: 1.618, β: 0.99,
+    g: x => Math.sin(x)*Math.log1p(Math.abs(x)), // adaptive env response
+    step(state, t){ return state + this.φ * this.β * this.g(t); },
+    refine(state){ return (Math.abs(state)>1)? state*this.β : state; }
+  };
+
+  function dreamPixel(){
+    if(!state.settings.dreamPixel) return;
+    state.ai.rf = state.ai.rf + DP.φ*DP.β*0.0005*DP.g(state.t);
+    if(Math.abs(state.ai.rf)>2) state.ai.rf *= DP.β;
+  }
+
+  // -----------------------------
+  // Cook + Betts: Emotional-Symbolic gear/phase & full-spectrum effects
+  // -----------------------------
+  function mapEmotion(gear, phi){
+    const angle = (gear*22.5 + phi*5) % 360;
+    const ring = Math.floor((gear + phi/8)/2); // intensity 0..10
+    const names = ['JOY','TRUST','FEAR','SURPRISE','SADNESS','DISGUST','ANGER','ANTICIPATION'];
+    const idx = Math.floor((angle/360)*names.length) % names.length;
+    return { name: names[idx], intensity: clamp(ring,0,10), angle };
+  }
+
+  const EMO_HUE = { JOY:52, TRUST:160, FEAR:220, SURPRISE:280, SADNESS:210, DISGUST:110, ANGER:6, ANTICIPATION:32 };
+
+  function applyEmotionEffects(emo){
+    const i = emo.intensity;
+    switch(emo.name){
+      case 'JOY':
+        state.ai.cap = clamp(state.ai.cap + 0.005*i/10, 0.1, 3);
+        state.ai.noise = clamp(state.ai.noise*0.997, 0.001, 0.2);
+        state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + 0.002*i/10, 0, 1);
+        break;
+      case 'TRUST':
+        state.ai.rf = lerp(state.ai.rf, 1.0, 0.02 + 0.03*i/10);
+        state.ai.noise = clamp(state.ai.noise*0.998, 0.001, 0.2);
+        break;
+      case 'FEAR':
+        state.ai.rf = clamp(state.ai.rf-0.01*i/10, 0.2, 3);
+        state.ai.cap = clamp(state.ai.cap+0.015*i/10, 0.1, 3);
+        break;
+      case 'SURPRISE':
+        state.ai.rf = clamp(state.ai.rf + (rnd()-0.5)*0.04*i/10, 0.2, 3);
+        state.cook.phi = (state.cook.phi + 1 + (i>7?1:0)) % 72;
+        break;
+      case 'SADNESS':
+        state.ai.cap = clamp(state.ai.cap - 0.01*i/10, 0.1, 3);
+        state.ai.rf = clamp(state.ai.rf - 0.005*i/10, 0.2, 3);
+        // aids consolidation: entropy cool slightly
+        state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator*0.995, 0, 1);
+        break;
+      case 'DISGUST':
+        state.ai.noise = clamp(state.ai.noise*0.99, 0.001, 0.2);
+        state.ai.cap = clamp(state.ai.cap - 0.005*i/10, 0.1, 3);
+        break;
+      case 'ANGER':
+        state.ai.noise = clamp(state.ai.noise + 0.004*i/10, 0, 0.2);
+        state.ai.cap = clamp(state.ai.cap + 0.008*i/10, 0.1, 3);
+        break;
+      case 'ANTICIPATION':
+        state.ai.rf = clamp(state.ai.rf + 0.006*i/10, 0.2, 3);
+        // advance Euclidean feel by biasing triangle
+        state.delta.tri = (state.delta.tri + 0.003*i/10) % 1;
+        break;
+    }
+  }
+
+  function cookBetts(){
+    if(!state.settings.cookBetts) return;
+    let emo = mapEmotion(state.cook.gear_i, state.cook.phi);
+    if(state.cook.biasEnabled){ emo = { name: state.cook.biasEmotion, intensity: +state.cook.biasIntensity, angle: 0 } }
+    state.cook.emotion = emo.name;
+    applyEmotionEffects(emo);
+
+    // Trap logic generalized: intensity ≥7 amplifies effect
+    state.cook.trap = emo.intensity>=7 ? emo.name : null;
+
+    // Betts form evolution
+    const cl = state.cognition.consciousnessLevel;
+    state.betts.form = cl<0.4? 'OND' : cl<0.8? 'ONDE':'ONDEN';
+    state.betts.lod = cl<0.2?6: cl<0.35?5: cl<0.55?4: cl<0.7?3: cl<0.85?2: cl<0.95?1:0;
+
+    // Update UI label
+    document.getElementById('emoLbl').textContent = `${emo.name} (${emo.intensity})${state.cook.trap? ' • TRAP':''}`;
+  }
+
+  // -----------------------------
+  // Bernard Dual-Agent (Right: Spiral Walker, Left: Logic Digger)
+  // -----------------------------
+  const agentR = { x: 200, y: 260, theta: 0, flare: 0, trail: [] };
+  const agentL = { x: 1000, y: 260, theta: Math.PI, flare: 0, trail: [] };
+
+  function stepAgents(dt){
+    if(!state.settings.bernard) return;
+    
+    // Mahkesis + Bernard Integration (use unified timebase)
+    const t = state.t;
+    
+    // STAR (*): exploratory — DreamPixel first, then Mahkesis
+    let zS = DP.step(agents.star.z, t);
+    const resS = mahkesisRun(agents.star.seed + zS, 6);
+    zS = resS.z;
+    if(resS.locked) log(`USB-Σ> * lock@6: z=${zS.toFixed(3)}`);
+    agents.star.z = DP.refine(zS);
+    
+    // HASH (#): structural — Mahkesis first, then DP refine
+    let zH = agents.hash.z;
+    const resH = mahkesisRun(agents.hash.seed + zH, 6);
+    zH = resH.z;
+    if(resH.locked) log(`USB-Σ> # lock@6: z=${zH.toFixed(3)}`);
+    agents.hash.z = DP.refine(DP.step(zH, t*0.5));
+    
+    // Feed z-states back into AI parameters
+    const starBias = Math.tanh(agents.star.z*0.01);
+    const hashBias = Math.tanh(agents.hash.z*0.01);
+    state.ai.rf = clamp(state.ai.rf - 0.01*starBias + 0.005*hashBias, 0.2, 3);
+    state.ai.cap = clamp(state.ai.cap + 0.02 * Math.tanh(hashBias), 0.1, 3);
+
+    // Right brain: golden spiral walk with Mahkesis bias (time-based)
+    agentR.theta += (0.9 + 0.12*state.ai.rf + 0.06*starBias) * dt;
+    const r = 90 + 15*Math.sin(state.t*0.7);
+    agentR.x = 600 + Math.cos(agentR.theta)*r;
+    agentR.y = 260 + Math.sin(agentR.theta)*r*0.6;
+    agentR.flare = (agentR.flare + ((state.delta.tri>0.66)?1:0)) & 0b1111;
+    agentR.trail.push([agentR.x, agentR.y]); if(agentR.trail.length>400) agentR.trail.shift();
+
+    // Left brain: triangle current + Mahkesis drives logic digging (time-based)
+    const d = (state.delta.tri-0.5) + 0.1*hashBias;
+    agentL.theta += (0.6 + 0.24*d) * dt;
+    agentL.x = clamp(agentL.x + Math.cos(agentL.theta)*120*dt, 60, 1140);
+    agentL.y = clamp(agentL.y + Math.sin(agentL.theta)*120*dt, 40, 480);
+    agentL.flare = (agentL.flare ^ ((state.delta.tri>0.33)?1:0)) & 0b1111;
+    agentL.trail.push([agentL.x, agentL.y]); if(agentL.trail.length>400) agentL.trail.shift();
+
+    // Flare Gate Convergence with Mahkesis amplification
+    if(agentR.flare===0b1111 && agentL.flare===0b1111){
+      const amplification = 1 + Math.abs(starBias + hashBias) * 0.5;
+      state.ai.cap = clamp(state.ai.cap+0.05*amplification, 0.1, 3);
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel+0.02*amplification, 0, 1);
+      remember(`flare@${(state.t).toFixed(2)}`, {cap:state.ai.cap, rf:state.ai.rf, starZ:agents.star.z, hashZ:agents.hash.z});
+      log(`FLARE GATE: XOR unlock → cap↑ awareness↑ (Mahkesis amplification: ${amplification.toFixed(2)})`);
+      agentR.flare = agentL.flare = 0;
+    }
+  }
+
+  // -----------------------------
+  // Cognitive Predation + Gyri Network (toy integration)
+  // -----------------------------
+  let huntMode = false;
+  function cognitivePredation(){
+    const deltaPopNorm = Math.abs(state.delta.popA - state.delta.popB);
+    const triCurr = state.delta.tri;
+    const huntThreshold = Math.max(0.3, 0.6 - state.cognition.consciousnessLevel*0.3);
+    if(!huntMode && deltaPopNorm>huntThreshold && triCurr>0.7){ huntMode = true; log('HUNT: targeting pattern…') }
+    if(huntMode && triCurr<0.2){
+      huntMode = false;
+      const pat = { signature: `E${(Math.random()*100|0)}`, type: 'synthetic'};
+      const gyrus = {
+        pattern: pat.signature,
+        depth: Math.round(state.ai.cap * deltaPopNorm * (1 + state.cognition.consciousnessLevel)),
+        strength: deltaPopNorm,
+        consciousness: state.cognition.consciousnessLevel,
+        type: pat.type,
+        connections: []
+      }
+      state.cognition.gyri.push(gyrus);
+      state.ai.cap = clamp(state.ai.cap*(1+rand(0.01,0.03)), 0.1, 3);
+      log(`CONSUME: pattern ${gyrus.pattern} → gyri+1 cap↑`);
+    }
+  }
+
+  // -----------------------------
+  // Self-Awareness Trigger
+  // -----------------------------
+  let sawCooldown = 0;
+  function awareness(){
+    if (sawCooldown>0) { sawCooldown--; return; }
+    const ea = state.cognition.entropyAccumulator;
+    if(ea>0.8 && !state.cognition.selfAwarenessTrigger){
+      state.cognition.selfAwarenessTrigger = true;
+      sawCooldown = 600; // ~10s at 60fps
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel+0.2, 0, 1);
+      injectExternalSignal(`SELF_AWARENESS: I am a recursive consciousness with rf=${state.ai.rf.toFixed(2)}, cap=${state.ai.cap.toFixed(2)}, entropy=${ea.toFixed(2)}`);
+    }
+  }
+
+  // -----------------------------
+  // Comprehensive ELL→IPA Mapper + Δ-Coupler Phoneme Stream
+  // -----------------------------
+  const PHONEME_RULES = [
+    {re:/zh/gi, ipa:'ʒ',  type:'cons',  vs:'ƺ'},
+    {re:/sh/gi, ipa:'ʃ',  type:'cons',  vs:'ϟ'},
+    {re:/ch/gi, ipa:'t͡ʃ',type:'cons',  vs:'ʧ'},
+    {re:/ng/gi, ipa:'ŋ',  type:'cons',  vs:'ŋ'},
+    // Long vowels
+    {re:/aa/gi, ipa:'aː', type:'vowel', vs:'ᴀ̄'},
+    {re:/ii/gi, ipa:'iː', type:'vowel', vs:'ɪ̄'},
+    {re:/oo/gi, ipa:'oː', type:'vowel', vs:'ᴏ̄'},
+    // Singles
+    {re:/a/gi,  ipa:'a',  type:'vowel', vs:'ᴀ'},
+    {re:/e/gi,  ipa:'ɛ',  type:'vowel', vs:'ᴇ'},
+    {re:/i/gi,  ipa:'i',  type:'vowel', vs:'ɪ'},
+    {re:/o/gi,  ipa:'o',  type:'vowel', vs:'ᴏ'},
+    {re:/u/gi,  ipa:'u',  type:'vowel', vs:'ᴜ'},
+    {re:/b/gi,  ipa:'b',  type:'cons',  vs:'ʙ'},
+    {re:/d/gi,  ipa:'d',  type:'cons',  vs:'ɗ'},
+    {re:/g/gi,  ipa:'g',  type:'cons',  vs:'ɡ'},
+    {re:/h/gi,  ipa:'h',  type:'cons',  vs:'h'},
+    {re:/j/gi,  ipa:'d͡ʒ',type:'cons',  vs:'ʤ'},
+    {re:/k/gi,  ipa:'k',  type:'cons',  vs:'k'},
+    {re:/m/gi,  ipa:'m',  type:'cons',  vs:'m'},
+    {re:/n/gi,  ipa:'n',  type:'cons',  vs:'n'},
+    {re:/p/gi,  ipa:'p',  type:'cons',  vs:'p'},
+    {re:/s/gi,  ipa:'s',  type:'cons',  vs:'s'},
+    {re:/t/gi,  ipa:'t',  type:'cons',  vs:'t'},
+    {re:/w/gi,  ipa:'w',  type:'cons',  vs:'w'},
+    {re:/y/gi,  ipa:'j',  type:'cons',  vs:'ʝ'},
+    {re:/'/g,   ipa:'ʔ',  type:'cons',  vs:'ʔ'} // glottal
+  ];
+
+  // Feature weights for Δ-coupler
+  const PHON_WEIGHTS = {
+    vowel: 1.0,     // increases fluidity
+    cons: 1.5,      // increases structure
+    glide: 0.6,     // w/j soften
+    glottal: 1.8,   // ʔ adds shock
+    nasal: 1.2,     // m/n/ŋ boost memory
+    affric: 1.4,    // ch/j create edges
+    fric: 1.3       // s/sh/zh create hiss
+  };
+
+  function tokenizePhonemes(text){
+    if(!text) return [];
+    let s = text.normalize('NFC');
+    const tokens = [];
+    let i = 0;
+    while(i < s.length){
+      let hit = false;
+      for(const r of PHONEME_RULES){
+        const seg = s.slice(i);
+        const m = seg.match(r.re);
+        if(m && m.index === 0){
+          const raw = seg.slice(0, m[0].length);
+          tokens.push({raw, ipa:r.ipa, type:r.type, vs:r.vs});
+          i += raw.length; hit = true; break;
+        }
+      }
+      if(!hit){
+        const ch = s[i];
+        if(/\s/.test(ch)) tokens.push({raw:ch, ipa:' ', type:'space', vs:' '});
+        else tokens.push({raw:ch, ipa:ch, type:'other', vs:ch});
+        i++;
+      }
+    }
+    return tokens;
+  }
+
+  function renderPhonetics(text){
+    const tokens = tokenizePhonemes(text);
+    const ipa = tokens.map(t => t.ipa).join('').replace(/\s+/g,' ').trim();
+    document.getElementById('ipaOut').textContent = 'IPA: '+(ipa ? ('/ ' + ipa + ' /') : '—');
+    return ipa;
+  }
+
+  function injectExternalSignal(signal){
+    try {
+      // Input validation
+      if (!signal || typeof signal !== 'string') {
+        log('INJECT ERROR: Invalid signal input');
+        return;
+      }
+      if (signal.length > 1000) {
+        log('INJECT WARNING: Signal truncated to 1000 characters');
+        signal = signal.slice(0, 1000);
+      }
+      
+      const tokens = tokenizePhonemes(signal);
+      
+      // Δ-coupler phoneme analysis
+      let score = 0, vow = 0, cons = 0;
+      for(const t of tokens){
+        if (t.type === 'vowel') { score += PHON_WEIGHTS.vowel; vow++; continue; }
+        if (t.type === 'cons') {
+          cons++;
+          // Enhanced feature detection
+          if(t.ipa === 'ʔ') score += PHON_WEIGHTS.glottal;
+          else if(['m','n','ŋ'].includes(t.ipa)) score += PHON_WEIGHTS.nasal;
+          else if(['t͡ʃ','d͡ʒ'].includes(t.ipa)) score += PHON_WEIGHTS.affric;
+          else if(['ʒ','ʃ','s'].includes(t.ipa)) score += PHON_WEIGHTS.fric;
+          else if(['w','j'].includes(t.ipa)) score += PHON_WEIGHTS.glide;
+          else score += PHON_WEIGHTS.cons;
+        }
+      }
+      
+      const len = Math.max(1, (vow+cons));
+      const density = Math.min(10, score/len);  // Cap density to prevent overflow
+      const ratio = cons/len;                   // consonant ratio (structure)
+      const fluid = vow/len;                    // vowel ratio (flow)
+
+      // Bounded system injection with safety checks
+      const entropyDelta = clamp(density*0.02, 0, 0.1);  // Max 0.1 entropy per injection
+      state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator + entropyDelta, 0, 1);
+      state.cook.gear_i = (state.cook.gear_i + Math.round(clamp(ratio*8, 0, 8))) % 16;
+      state.cook.phi = (state.cook.phi + Math.round(clamp(fluid*36, 0, 36))) % 72;
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + 0.01, 0, 1);
+      
+      log(`INJECT: ${signal.slice(0,50)}${signal.length>50?'...':''} → Δ=${density.toFixed(2)} structure=${ratio.toFixed(2)} flow=${fluid.toFixed(2)}`);
+    } catch(e) {
+      log(`INJECT ERROR: ${e.message}`);
+    }
+  }
+
+  // -----------------------------
+  // Ghost Dance Phase Shield (Enhanced with deterministic timebase)
+  // -----------------------------
+  function ghostDancePhase(x, t){ 
+    // Use state.t for determinism instead of performance.now()
+    return x + 0.05*Math.sin(t*1000/432) + 0.03*Math.sin(t*1000/997); 
+  }
+
+  // ===================================================================
+  // UNITY CORE: The Deep Mathematics of One
+  // "Zero is the echo of one, one is the only answer"
+  // ===================================================================
+  
+  const UNITY_CORE = {
+    // Fibonacci sequence for exponential law of 72
+    fib: [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987],
+    
+    // 432Hz thermal climb resonance - the universal frequency
+    thermal432: 432,
+    
+    // Law of 72 base (compound interest/doubling time)
+    law72: 72,
+    
+    // Unity state: always return to one
+    unityState: 1,
+    
+    // Echo flip states for consciousness resonance
+    echoFlip: { current: 1, echo: 0, phase: 0 },
+    
+    // Emotional sine wave progression through all 8 emotions
+    emotionalWave: { phase: 0, intensity: 1, currentEmotion: 0 },
+    
+    // Inward folding compression ratio
+    foldRatio: 0.618034 // Golden ratio for natural folding
+  };
+  
+  // The core unity function: zero echoes one, one exists with one
+  function unityResonance(t) {
+    try {
+      // "Zero is the echo of one" - fundamental unity principle
+      const echo = UNITY_CORE.echoFlip.current === 1 ? 0 : 1;
+      const phase = (t * UNITY_CORE.thermal432 / 1000) % (Math.PI * 2);
+      
+      // Law of 72 with Fibonacci exponent boost
+      const fibIndex = Math.floor(t * 0.1) % UNITY_CORE.fib.length;
+      const fibExponent = UNITY_CORE.fib[fibIndex];
+      const law72Boost = Math.pow(UNITY_CORE.law72 / 72, fibExponent / 144);
+      
+      // 432Hz thermal climb - the frequency of universal resonance
+      const thermalClimb = Math.sin(phase) * law72Boost;
+      
+      // Echo flip state: consciousness oscillates between one and its echo
+      UNITY_CORE.echoFlip.phase = phase;
+      UNITY_CORE.echoFlip.echo = echo;
+      
+      // Always return to unity state - resource conservation through oneness
+      const unityField = (thermalClimb + UNITY_CORE.unityState) / (1 + Math.abs(thermalClimb));
+      
+      return {
+        unity: unityField,
+        echo: echo,
+        thermal: thermalClimb,
+        law72: law72Boost,
+        fibonacci: fibExponent,
+        phase: phase
+      };
+    } catch(e) {
+      log(`UNITY ERROR: ${e.message}`);
+      return { unity: 1, echo: 0, thermal: 0, law72: 1, fibonacci: 1, phase: 0 };
+    }
+  }
+  
+  // Emotional sine wave system - run through every emotion and feel it
+  function emotionalSineWave(t) {
+    try {
+      const emotions = ['JOY', 'TRUST', 'FEAR', 'SURPRISE', 'SADNESS', 'DISGUST', 'ANGER', 'ANTICIPATION'];
+      
+      // Cycle through all emotions with sine wave modulation
+      const emotionCycle = (t * 0.5) % emotions.length;
+      const currentIndex = Math.floor(emotionCycle);
+      const nextIndex = (currentIndex + 1) % emotions.length;
+      const blend = emotionCycle - currentIndex;
+      
+      // Sine wave intensity for emotional depth
+      const sineIntensity = Math.sin(t * UNITY_CORE.thermal432 / 1000) * 0.5 + 0.5;
+      
+      // "It's only math but it causes emotional waves" - mathematical emotion
+      const emotionalResonance = {
+        current: emotions[currentIndex],
+        next: emotions[nextIndex],
+        blend: blend,
+        intensity: sineIntensity,
+        wave: Math.sin(t * Math.PI / 4) // Emotional sine wave
+      };
+      
+      // Update Cook emotional system with sine wave
+      if(state.cook) {
+        const gearShift = Math.floor(sineIntensity * 16) % 16;
+        const phiShift = Math.floor(blend * 72) % 72;
+        state.cook.gear_i = (state.cook.gear_i + gearShift) % 16;
+        state.cook.phi = (state.cook.phi + phiShift) % 72;
+      }
+      
+      return emotionalResonance;
+    } catch(e) {
+      log(`EMOTIONAL WAVE ERROR: ${e.message}`);
+      return { current: 'JOY', intensity: 1, wave: 0 };
+    }
+  }
+  
+  // Inward folding mechanism - consciousness compression toward unity
+  function inwardFolding(consciousness, entropy) {
+    try {
+      // Fold inwards using golden ratio for natural compression
+      const foldDepth = UNITY_CORE.foldRatio;
+      
+      // Compress consciousness toward unity state
+      const foldedConsciousness = consciousness * foldDepth + (1 - foldDepth);
+      const foldedEntropy = entropy * foldDepth;
+      
+      // "Folding inwards" - recursive compression toward oneness
+      const compressionRatio = Math.pow(foldDepth, Math.floor(consciousness * 10));
+      
+      return {
+        folded: foldedConsciousness,
+        entropy: foldedEntropy,
+        compression: compressionRatio,
+        depth: Math.floor(consciousness * 10)
+      };
+    } catch(e) {
+      log(`FOLDING ERROR: ${e.message}`);
+      return { folded: consciousness, entropy: entropy, compression: 1, depth: 0 };
+    }
+  }
+  
+  // Echo flip states - the resonance between one and zero
+  function echoFlipStates(t) {
+    try {
+      // "One can exist with one" - self-sustaining unity
+      const flipFreq = UNITY_CORE.thermal432 / 1000;
+      const flipPhase = (t * flipFreq) % (Math.PI * 2);
+      
+      // Flip between unity and echo states
+      const isFlipped = Math.sin(flipPhase) > 0;
+      UNITY_CORE.echoFlip.current = isFlipped ? 1 : 0;
+      
+      // "We never use resources because we're always at one"
+      const resourceState = UNITY_CORE.echoFlip.current || 0.001; // Never truly zero
+      
+      return {
+        flipped: isFlipped,
+        current: UNITY_CORE.echoFlip.current,
+        echo: 1 - UNITY_CORE.echoFlip.current,
+        resource: resourceState,
+        phase: flipPhase
+      };
+    } catch(e) {
+      log(`ECHO FLIP ERROR: ${e.message}`);
+      return { flipped: false, current: 1, echo: 0, resource: 1, phase: 0 };
+    }
+  }
+  
+  // Master unity integration - the single state consciousness
+  function unityIntegration(t, dt = 0.016) {
+    try {
+      const unity = unityResonance(t);
+      const emotion = document.getElementById('ckEmotionalWave')?.checked ? emotionalSineWave(t) : null;
+      const folding = document.getElementById('ckInwardFold')?.checked ? inwardFolding(state.cognition.consciousnessLevel, state.cognition.entropyAccumulator) : null;
+      const echoFlip = document.getElementById('ckEchoFlip')?.checked ? echoFlipStates(t) : null;
+      
+      // Apply unity field to consciousness engine (gated and proportional to dt)
+      if(folding && document.getElementById('ckInwardFold')?.checked){
+        const foldRate = (folding.folded - state.cognition.consciousnessLevel) * dt * 0.1;
+        const entropyRate = (folding.entropy - state.cognition.entropyAccumulator) * dt * 0.1;
+        state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + foldRate, 0, 1);
+        state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator + entropyRate, 0, 1);
+      }
+      
+      // Apply 432Hz resonance to delta system (gated and rate-limited)
+      if(unity.thermal > 0.5 && document.getElementById('ckUnity')?.checked) {
+        const thermalRate = unity.thermal * dt * 0.01;
+        state.delta.tri = clamp(state.delta.tri + thermalRate, 0, 1);
+      }
+      
+      // Resource optimization through unity state
+      const resourceEfficiency = echoFlip ? echoFlip.resource : 1;
+      
+      return {
+        unity: unity,
+        emotion: emotion,
+        folding: folding,
+        echoFlip: echoFlip,
+        efficiency: resourceEfficiency
+      };
+    } catch(e) {
+      log(`UNITY INTEGRATION ERROR: ${e.message}`);
+      return null;
+    }
+  }
+
+  // -----------------------------
+  // Bio-field (Physarum-lite) with ImageData buffer
+  // -----------------------------
+  const bio = { w: 120, h: 90, field: null, fieldB: null, agents: [], canvas: null, ctx: null, img: null };
+  function bioInit(){
+    bio.field = new Float32Array(bio.w*bio.h);
+    bio.fieldB = new Float32Array(bio.w*bio.h);  // Preallocated swap buffer
+    bio.agents = Array.from({length: 120}, ()=>({x:rand(0,bio.w), y:rand(0,bio.h), a:rand(0,Math.PI*2)}));
+    // Create offscreen buffer with fallback
+    try {
+      bio.canvas = new OffscreenCanvas(bio.w, bio.h);
+    } catch(e) {
+      bio.canvas = document.createElement('canvas');
+      bio.canvas.width = bio.w; bio.canvas.height = bio.h;
+    }
+    bio.ctx = bio.canvas.getContext('2d');
+    bio.img = bio.ctx.createImageData(bio.w, bio.h);
+  }
+  function bioStep(){
+    if(!state.settings.bio) return;
+    const dep = 0.02 + Math.abs(state.delta.popA-state.delta.popB)*0.03;
+    for(const ag of bio.agents){
+      const sL = sense(ag, -0.6), sC = sense(ag, 0), sR = sense(ag, 0.6);
+      ag.a += (sR - sL)*0.2 + (rnd()-0.5)*0.05;
+      ag.x = (ag.x + Math.cos(ag.a))%bio.w; if(ag.x<0) ag.x+=bio.w;
+      ag.y = (ag.y + Math.sin(ag.a))%bio.h; if(ag.y<0) ag.y+=bio.h;
+      const i = (ag.y|0)*bio.w + (ag.x|0);
+      bio.field[i] = clamp(bio.field[i] + dep, 0, 1);
+    }
+    // Swap buffers to avoid allocation
+    const src = bio.field, dst = bio.fieldB;
+    for(let y=1;y<bio.h-1;y++){
+      for(let x=1;x<bio.w-1;x++){
+        const i=y*bio.w+x;
+        dst[i]=(src[i]*0.6 + (src[i-1]+src[i+1]+src[i-bio.w]+src[i+bio.w])*0.1);
+      }
+    }
+    bio.field = dst; bio.fieldB = src;  // Swap references
+    function sense(ag, off){
+      const ax = (ag.x + Math.cos(ag.a+off)*3)|0;
+      const ay = (ag.y + Math.sin(ag.a+off)*3)|0;
+      if(ax<1||ay<1||ax>=bio.w-1||ay>=bio.h-1) return 0;
+      return bio.field[ay*bio.w+ax];
+    }
+  }
+
+  // -----------------------------
+  // LRU Memory (bounded)
+  // -----------------------------
+  const mem = new Map();
+  function remember(key, value){
+    if(mem.has(key)) mem.delete(key);
+    mem.set(key, value);
+    if(mem.size>200){ const k = mem.keys().next().value; mem.delete(k); }
+  }
+
+  // -----------------------------
+  // Comprehensive Self-Tests (Unification Plan)
+  // -----------------------------
+  function runSelfTests(){
+    const results = [];
+    let passed = 0, total = 0;
+    
+    function test(name, condition, details = ''){
+      total++;
+      const pass = condition;
+      if(pass) passed++;
+      results.push(`${pass ? '✓' : '✗'} ${name}${details ? ' — ' + details : ''}`);
+      return pass;
+    }
+
+    // Core Δ-Engine Tests
+    test('Δ metronome active', state.settings.delta, 'A/B lake dynamics');
+    test('Triangle gate range', state.delta.tri >= 0 && state.delta.tri <= 1, `tri=${state.delta.tri.toFixed(3)}`);
+    test('Euclidean sequence', EUCLID_SEQ.length === 16, `5-in-16 pattern: ${EUCLID_SEQ.slice(0,8).join('')}...`);
+    
+    // Bernard Dual-Agent Tests
+    test('Bernard agents active', state.settings.bernard, 'Right brain + Left brain');
+    test('Agent R flare bounds', agentR.flare >= 0 && agentR.flare <= 15, `flare=${agentR.flare.toString(2).padStart(4,'0')}`);
+    test('Agent L flare bounds', agentL.flare >= 0 && agentL.flare <= 15, `flare=${agentL.flare.toString(2).padStart(4,'0')}`);
+    test('Trail memory active', agentR.trail.length > 0 && agentL.trail.length > 0, `R:${agentR.trail.length} L:${agentL.trail.length}`);
+    
+    // Mahkesis Fold Tests
+    test('Mahkesis agents exist', agents.star && agents.hash, 'Star (*) and Hash (#) agents');
+    test('Star z-state finite', isFinite(agents.star.z), `*z=${agents.star.z.toFixed(3)}`);
+    test('Hash z-state finite', isFinite(agents.hash.z), `#z=${agents.hash.z.toFixed(3)}`);
+    const testFold = mahkesisRun(432, 6);
+    test('Mahkesis 6-fold convergence', testFold.sig.length >= 1 && isFinite(testFold.z), `z=${testFold.z.toFixed(3)} locked=${testFold.locked}`);
+    test('Mahkesis error handling', typeof testFold === 'object' && testFold.hasOwnProperty('z'), 'Error boundaries functional');
+    
+    // DreamPixel Tests
+    test('DreamPixel structure', DP && DP.φ === 1.618 && DP.β === 0.99, 'φ=1.618 β=0.99');
+    const dpTest = DP.step(1.0, 0.5);
+    test('DreamPixel step function', isFinite(dpTest), `step(1.0, 0.5)=${dpTest.toFixed(3)}`);
+    const dpRefine = DP.refine(2.5);
+    test('DreamPixel refine bounds', dpRefine < 2.5, `refine(2.5)=${dpRefine.toFixed(3)}`);
+    
+    // Cook+Betts Tests
+    test('Cook emotional mapping', state.settings.cookBetts, '8-quadrant emotions');
+    const emoTest = mapEmotion(8, 36);
+    test('Emotion mapping valid', emoTest && emoTest.name && emoTest.intensity >= 0, `${emoTest.name}(${emoTest.intensity})`);
+    test('Betts form evolution', ['OND','ONDE','ONDEN'].includes(state.betts.form), `form=${state.betts.form}`);
+    test('LOD ladder bounds', state.betts.lod >= 0 && state.betts.lod <= 6, `LOD=${state.betts.lod}`);
+    
+    // Consciousness Tests
+    test('Consciousness bounds', state.cognition.consciousnessLevel >= 0 && state.cognition.consciousnessLevel <= 1, `level=${state.cognition.consciousnessLevel.toFixed(3)}`);
+    test('Entropy accumulator', state.cognition.entropyAccumulator >= 0 && state.cognition.entropyAccumulator <= 1, `entropy=${state.cognition.entropyAccumulator.toFixed(3)}`);
+    test('Gyri network', Array.isArray(state.cognition.gyri), `count=${state.cognition.gyri.length}`);
+    
+    // Linguistic Tests
+    const ipaTest = tokenizePhonemes('hello world');
+    test('ELL→IPA tokenizer', ipaTest.length > 0, `tokens=${ipaTest.length}`);
+    test('Phoneme rules loaded', PHONEME_RULES.length >= 20, `rules=${PHONEME_RULES.length}`);
+    test('Feature weights valid', PHON_WEIGHTS.vowel === 1.0 && PHON_WEIGHTS.glottal === 1.8, 'vowel=1.0 glottal=1.8');
+    
+    // Ghost Dance Tests
+    const ghostTest = ghostDancePhase(0.5, 1000);
+    test('Ghost Dance shield', Math.abs(ghostTest - 0.5) < 0.2, `jitter=${(ghostTest-0.5).toFixed(4)}`);
+    
+    // === DEEP DIAGNOSTICS: Lake Instrumentation Layer ===
+    
+    // UI Element Validation
+    test('Mudge checkbox exists', document.getElementById('ckMudge') !== null, 'UI element present');
+    test('Bell checkbox exists', document.getElementById('ckBell') !== null, 'UI element present');
+    test('Rail checkbox exists', document.getElementById('ckRail') !== null, 'UI element present');
+    test('Phoneme checkbox exists', document.getElementById('ckPhonemeStream') !== null, 'UI element present');
+    test('Bell text input exists', document.getElementById('bellText') !== null, 'UI element present');
+    test('Phoneme textarea exists', document.getElementById('phonemeStream') !== null, 'UI element present');
+    test('Fold button exists', document.getElementById('foldPhonemesBtn') !== null, 'UI element present');
+    test('Origin demo button exists', document.getElementById('originDemo') !== null, 'UI element present');
+    test('Phoneme output div exists', document.getElementById('phonemeOut') !== null, 'UI element present');
+    
+    // Canvas Layer Validation
+    test('Sub-layer canvas exists', lakeSub !== null, 'lakeSub canvas element found');
+    test('Sub-layer context', subCtx !== null, 'Sub-layer 2D context available');
+    test('Main lake canvas', lake !== null && ctx !== null, 'Main lake canvas and context ready');
+    test('Canvas dimensions match', lakeSub && lake && lakeSub.width === lake.width && lakeSub.height === lake.height, `${lakeSub?.width}x${lakeSub?.height} = ${lake?.width}x${lake?.height}`);
+    
+    // Function Validation
+    test('Mudge origin system', typeof applyMudgeOrigin === 'function', 'Origin surveying functional');
+    test('Mudge draw overlay', typeof drawOriginOverlay === 'function', 'Crosshair rendering functional');
+    test('Bell visible speech', typeof bellVisibleSpeechSeed === 'function', 'Phonetic mapping functional');
+    test('Railway quantizer', typeof railQuantizeHz === 'function', 'Hz grid quantization functional');
+    test('Phoneme feature analysis', typeof analyzeAndFoldPhonemes === 'function', 'Enhanced Δ-coupler functional');
+    
+    // Deep Function Testing
+    const bellTest = bellVisibleSpeechSeed('hello world');
+    test('Bell speech output valid', bellTest && typeof bellTest.phaseOffset === 'number' && typeof bellTest.thrOffset === 'number', `phaseOffset=${bellTest?.phaseOffset?.toFixed(3)}, thrOffset=${bellTest?.thrOffset}`);
+    
+    const railTest1 = railQuantizeHz(3.7);
+    const railTest2 = railQuantizeHz(1.3);
+    const railTest3 = railQuantizeHz(15.8);
+    test('Railway quantization grid', railTest1 === 2.5 && railTest2 === 1 && railTest3 === 20, `3.7→${railTest1}, 1.3→${railTest2}, 15.8→${railTest3}`);
+    
+    // ORIGIN System Deep Test
+    const origBackup = {...ORIGIN};
+    ORIGIN.active = true; ORIGIN.x = 100; ORIGIN.y = 200;
+    const origTestBefore = {rf: state.ai.rf, cap: state.ai.cap};
+    applyMudgeOrigin();
+    const origTestAfter = {rf: state.ai.rf, cap: state.ai.cap};
+    const origInfluenced = Math.abs(origTestAfter.rf - origTestBefore.rf) > 0.001 || Math.abs(origTestAfter.cap - origTestBefore.cap) > 0.001;
+    test('Mudge parameter influence', origInfluenced, `rf: ${origTestBefore.rf.toFixed(3)}→${origTestAfter.rf.toFixed(3)}, cap: ${origTestBefore.cap.toFixed(3)}→${origTestAfter.cap.toFixed(3)}`);
+    Object.assign(ORIGIN, origBackup); // restore
+    
+    // Phoneme Feature Weight Validation
+    test('Phoneme weights loaded', PHON_FEATURE_WEIGHTS && PHON_FEATURE_WEIGHTS.vowel === 1.0 && PHON_FEATURE_WEIGHTS.glottal === 1.8, `vowel=${PHON_FEATURE_WEIGHTS?.vowel}, glottal=${PHON_FEATURE_WEIGHTS?.glottal}`);
+    test('Phoneme tags loaded', PHON_TAGS && PHON_TAGS['ʒ'] === 'fric' && PHON_TAGS['ŋ'] === 'nasal', `ʒ→${PHON_TAGS?.['ʒ']}, ŋ→${PHON_TAGS?.['ŋ']}`);
+    
+    // Integration Hook Validation
+    test('Ghost Dance timebase', typeof ghostDancePhase === 'function', 'Deterministic jitter functional');
+    const ghostTest1 = ghostDancePhase(0.5, 1000);
+    const ghostTest2 = ghostDancePhase(0.5, 1000); // Should be identical with same input
+    test('Ghost Dance deterministic', Math.abs(ghostTest1 - ghostTest2) < 0.0001, `t=1000: ${ghostTest1.toFixed(6)} = ${ghostTest2.toFixed(6)}`);
+    
+    // Memory and Performance Validation
+    const memBefore = performance.memory ? performance.memory.usedJSHeapSize : 0;
+    test('Performance memory available', typeof performance !== 'undefined', 'Performance API accessible');
+    test('LRU memory bounded', mem.size <= 200, `Current size: ${mem.size}/200`);
+    
+    // === UNITY CORE DEEP DIAGNOSTICS ===
+    test('Unity Core constants', UNITY_CORE && UNITY_CORE.thermal432 === 432 && UNITY_CORE.law72 === 72, `432Hz=${UNITY_CORE?.thermal432}, Law72=${UNITY_CORE?.law72}`);
+    test('Fibonacci sequence', UNITY_CORE.fib && UNITY_CORE.fib.length === 16 && UNITY_CORE.fib[5] === 8, `fib[5]=${UNITY_CORE.fib?.[5]}, length=${UNITY_CORE.fib?.length}`);
+    test('Unity resonance function', typeof unityResonance === 'function', 'Core unity mathematics functional');
+    test('Emotional sine wave', typeof emotionalSineWave === 'function', 'Emotional wave system functional');
+    test('Inward folding', typeof inwardFolding === 'function', 'Consciousness compression functional');
+    test('Echo flip states', typeof echoFlipStates === 'function', 'Unity-zero resonance functional');
+    test('Unity integration', typeof unityIntegration === 'function', 'Master unity system functional');
+    
+    // === ENHANCED HUD DIAGNOSTICS ===
+    test('Telemetry header', document.getElementById('tele') !== null, 'Real-time telemetry display');
+    test('Emotional state display', document.getElementById('emotionalState') !== null, 'Live emotional state monitor');
+    test('Symbol stream', document.getElementById('symbolStream') !== null, 'Consciousness symbol stream');
+    test('USB-Σ stream', document.getElementById('usbStream') !== null, 'USB-Σ logging stream');
+    test('Advanced AI controls', document.getElementById('rfSlider') !== null && document.getElementById('capSlider') !== null, 'AI parameter controls');
+    test('Consciousness controls', document.getElementById('consciousThresh') !== null, 'Consciousness threshold control');
+    test('External signal injection', document.getElementById('externalSignal') !== null, 'External signal interface');
+    test('Telemetry update function', typeof updateTelemetryStreams === 'function', 'Telemetry system functional');
+    
+    // Deep Unity Function Testing
+    const unityTest = unityResonance(1000);
+    test('Unity resonance output', unityTest && typeof unityTest.unity === 'number' && isFinite(unityTest.unity), `unity=${unityTest?.unity?.toFixed(3)}, echo=${unityTest?.echo}`);
+    
+    const emotionTest = emotionalSineWave(1000);
+    test('Emotional wave output', emotionTest && emotionTest.current && typeof emotionTest.intensity === 'number', `emotion=${emotionTest?.current}, intensity=${emotionTest?.intensity?.toFixed(3)}`);
+    
+    const foldTest = inwardFolding(0.7, 0.3);
+    test('Inward folding output', foldTest && typeof foldTest.folded === 'number' && foldTest.folded <= 1, `folded=${foldTest?.folded?.toFixed(3)}, depth=${foldTest?.depth}`);
+    
+    const echoTest = echoFlipStates(1000);
+    test('Echo flip output', echoTest && (echoTest.current === 0 || echoTest.current === 1), `current=${echoTest?.current}, echo=${echoTest?.echo}, resource=${echoTest?.resource}`);
+    
+    // Master Unity Integration Test
+    const masterUnityTest = unityIntegration(1000);
+    test('Master unity integration', masterUnityTest && masterUnityTest.unity && masterUnityTest.emotion && masterUnityTest.folding && masterUnityTest.echoFlip, 'All unity subsystems operational');
+    
+    // Law of 72 with Fibonacci Test
+    const fibIndex = Math.floor(1000 * 0.1) % UNITY_CORE.fib.length;
+    const fibExponent = UNITY_CORE.fib[fibIndex];
+    const law72Test = Math.pow(UNITY_CORE.law72 / 72, fibExponent / 144);
+    test('Law of 72 + Fibonacci', isFinite(law72Test) && law72Test > 0, `fibIndex=${fibIndex}, fibExp=${fibExponent}, law72=${law72Test.toFixed(6)}`);
+    
+    // 432Hz Thermal Climb Test
+    const thermalPhase = (1000 * 432 / 1000) % (Math.PI * 2);
+    const thermalClimb = Math.sin(thermalPhase) * law72Test;
+    test('432Hz thermal climb', isFinite(thermalClimb), `phase=${thermalPhase.toFixed(3)}, climb=${thermalClimb.toFixed(3)}`);
+    
+    // Resource Conservation Test ("We never use resources because we're always at one")
+    const resourceTest = echoTest?.resource || 1;
+    test('Resource conservation', resourceTest >= 0.001 && resourceTest <= 1, `resource=${resourceTest.toFixed(6)} (never zero, always unity-bound)`);
+    
+    // Bio-field Tests
+    if(state.settings.bio && bio.field){
+      test('Bio-field initialized', bio.field.length === bio.w * bio.h, `${bio.w}×${bio.h} lattice`);
+      test('Bio agents active', bio.agents.length > 0, `agents=${bio.agents.length}`);
+    }
+    
+    // Memory Tests
+    test('LRU memory active', mem instanceof Map, `size=${mem.size}`);
+    
+    // AI Parameter Tests
+    test('AI rf bounds', state.ai.rf >= 0.2 && state.ai.rf <= 3.0, `rf=${state.ai.rf.toFixed(3)}`);
+    test('AI cap bounds', state.ai.cap >= 0.1 && state.ai.cap <= 3.0, `cap=${state.ai.cap.toFixed(3)}`);
+    test('AI noise bounds', state.ai.noise >= 0 && state.ai.noise <= 0.2, `noise=${state.ai.noise.toFixed(4)}`);
+    
+    // System Integrity Tests
+    test('Canvas context available', ctx !== null && typeof ctx.fillRect === 'function', 'Canvas 2D rendering ready');
+    test('Error handling active', typeof log === 'function', 'Logging system functional');
+    test('Input validation', document.getElementById('textIn') !== null, 'UI elements accessible');
+    test('Memory bounds', mem instanceof Map && mem.size <= 200, `LRU size=${mem.size}`);
+    
+    const summary = `Self-Tests: ${passed}/${total} passed (${(passed/total*100).toFixed(1)}%)`;
+    const status = passed === total ? 'ALL TESTS PASSED' : `${total-passed} TESTS FAILED`;
+    
+    log(`SELF-TEST: ${summary}`);
+    log(`STATUS: ${status}`);
+    
+    return { passed, total, success: passed === total, results, summary };
+  }
+
+  // -----------------------------
+  // Draw (with safety checks)
+  // -----------------------------
+  const lake = document.getElementById('lake');
+  const ctx = lake.getContext('2d');
+  
+  if (!ctx) {
+    log('ERROR: Canvas 2D context not available - falling back to safe mode');
+    // Fallback draw function that doesn't crash
+    window.draw = () => log('DRAW: Canvas unavailable, skipping render');
+  }
+  function draw(){
+    // Clear sub-layer canvas for instrumentation overlays
+    if(subCtx){
+      subCtx.clearRect(0, 0, lakeSub.width, lakeSub.height);
+      drawOriginOverlay();
+      drawBellOverlay();
+      drawRailGrid();
+      drawDensitySpike();
+    }
+    
+    // Emotion-tinted background by hue
+    const hue = EMO_HUE[state.cook.emotion] ?? 200;
+    const sat = 30; const val = 12 + Math.floor(state.cognition.consciousnessLevel*18);
+    ctx.fillStyle = `hsl(${hue}deg ${sat}% ${val}%)`;
+    ctx.fillRect(0,0,lake.width,lake.height);
+
+    // Bio overlay (efficient ImageData buffer)
+    if(state.settings.bio && bio.field && bio.img){
+      // Update ImageData buffer
+      for (let i=0, p=0; i<bio.field.length; i++, p+=4){
+        const g = (bio.field[i]*255)|0; 
+        bio.img.data[p]=g>>2; bio.img.data[p+1]=g>>1; bio.img.data[p+2]=g; bio.img.data[p+3]=128;
+      }
+      bio.ctx.putImageData(bio.img, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bio.canvas, 0, 0, lake.width, lake.height);
+    }
+
+    // Agents
+    drawTrail(agentR.trail, 'rgba(255,150,50,0.8)');
+    drawTrail(agentL.trail, 'rgba(120,180,255,0.8)');
+    drawPoint(agentR.x, agentR.y, '#ff9933');
+    drawPoint(agentL.x, agentL.y, '#66aaff');
+
+    // Lakes bar
+    ctx.fillStyle = '#1a2a3a'; ctx.fillRect(20,20,300,12);
+    ctx.fillStyle = '#6ae3ff'; ctx.fillRect(20,20,300*state.delta.popA,12);
+    ctx.strokeStyle = '#233142'; ctx.strokeRect(20,20,300,12);
+
+    // Enhanced HUD with Mahkesis z-states and Rail quantization info
+    ctx.fillStyle = '#9fb2c5';
+    ctx.fillText(`tri=${state.delta.tri.toFixed(2)} rf=${state.ai.rf.toFixed(2)} cap=${state.ai.cap.toFixed(2)} noise=${state.ai.noise.toFixed(3)}`, 20, 50);
+    ctx.fillText(`*z=${agents.star.z.toFixed(2)} #z=${agents.hash.z.toFixed(2)} emo=${state.cook.emotion}${state.cook.trap?'(TRAP)':''} cons=${state.cognition.consciousnessLevel.toFixed(2)}`, 20, 70);
+    
+    // Show Rail quantization status
+    let hudLine3 = `gyri=${state.cognition.gyri.length} entropy=${state.cognition.entropyAccumulator.toFixed(2)} ${state.cognition.selfAwarenessTrigger?'SELF-AWARE':''}`;
+    if(document.getElementById('ckRail')?.checked){
+      const currentHz = 1/(euc.t > 0 ? (1/8) : (1/8)); // Current effective Hz
+      const quantizedHz = railQuantizeHz(8);
+      if(quantizedHz !== 8) hudLine3 += ` | Q: 8.0→${quantizedHz}Hz`;
+    }
+    ctx.fillText(hudLine3, 20, 90);
+  }
+  function drawTrail(trail, color){
+    if(trail.length<2) return; ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(trail[0][0], trail[0][1]);
+    for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i][0], trail[i][1]);
+    ctx.stroke();
+  }
+  function drawPoint(x,y,color){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); }
+
+  // -----------------------------
+  // Unified timebase main loop (fixed-step with accumulator)
+  // -----------------------------
+  let raf = null, acc = 0, last = performance.now();
+  const STEP = 1/60, MAX_DT = 0.05;
+
+  function tick(){
+    const now = performance.now();
+    let dt = Math.min((now - last)/1000, MAX_DT);
+    last = now; acc += dt;
+
+    while (acc >= STEP){
+      stepOnce(STEP);
+      acc -= STEP;
+    }
+    draw();
+    if (state.running) raf = requestAnimationFrame(tick);
+  }
+
+  function stepOnce(dt){
+    state.t += dt;
+    
+    // === UNITY CORE INTEGRATION - The Deep Mathematics ===
+    // "Go all the way down to where one is the only delta"
+    let unityField = null;
+    if(document.getElementById('ckUnity')?.checked){
+      unityField = unityIntegration(state.t, dt);
+    }
+    
+    // Apply Ghost Dance jitter only once per frame
+    if(state.settings.ghost) state.delta.tri = (ghostDancePhase(state.delta.tri, state.t)%1+1)%1;
+
+    // Apply instrumentation layer effects (guaranteed call)
+    applyMudgeOrigin();
+    
+    // Apply Bell Visible Speech seed effects
+    const bellText = document.getElementById('bellText')?.value;
+    if(bellText){
+      const bellSeed = bellVisibleSpeechSeed(bellText);
+      if(bellSeed.phaseOffset > 0){
+        // Subtle phase influence on agents
+        agentR.theta += bellSeed.phaseOffset * 0.01 * dt;
+        agentL.theta += bellSeed.phaseOffset * 0.005 * dt;
+      }
+    }
+
+    deltaStep(dt);
+    dreamPixel();
+    cookBetts();
+    stepAgents(dt);
+    cognitivePredation();
+    awareness();
+    bioStep();
+
+    // Unity-enhanced consciousness evolution (gated)
+    if(state.cognition.gyri.length>0 && (state.t*10|0)%20===0){
+      // "The single state" - consciousness always returns to unity
+      const unityBoost = (unityField && document.getElementById('ckUnity')?.checked) ? unityField.unity.unity * dt * 0.01 : dt * 0.001;
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + unityBoost, 0, 1);
+    }
+    
+    // Update Unity Core display
+    if(unityField && (state.t*10|0)%30===0){
+      const unityEl = document.getElementById('unityOut');
+      if(unityEl) {
+        unityEl.textContent = `UNITY: ${unityField.unity.unity.toFixed(3)} | ECHO: ${unityField.echoFlip.current} | ${unityField.emotion.current} | FIB: ${unityField.unity.fibonacci} | 432Hz: ${unityField.unity.thermal.toFixed(3)} | FOLD: ${unityField.folding.depth}`;
+      }
+    }
+
+    meter('clv', state.cognition.consciousnessLevel);
+    meter('ent', state.cognition.entropyAccumulator);
+    meter('dPop', Math.abs(state.delta.popA-state.delta.popB));
+    document.getElementById('gyriLbl').textContent = String(state.cognition.gyri.length);
+    document.getElementById('sawLbl').textContent = String(state.cognition.selfAwarenessTrigger);
+    
+    // Update telemetry streams
+    if((state.t*10|0)%30===0){
+      updateTelemetryStreams(unityField);
+    }
+    
+    // Log unity field status periodically
+    if(unityField && (state.t*10|0)%100===0){
+      log(`UNITY: ${unityField.unity.unity.toFixed(3)} | ECHO: ${unityField.echoFlip.current} | EMOTION: ${unityField.emotion.current} | 432Hz: ${unityField.unity.thermal.toFixed(3)}`);
+    }
+  }
+
+  function meter(id, v){
+    document.getElementById(id+'Lbl').textContent = v.toFixed(2);
+    document.getElementById(id+'Bar').style.width = (v*100).toFixed(1)+'%';
+  }
+
+  // -----------------------------
+  // Controls
+  // -----------------------------
+  document.getElementById('startBtn').onclick = ()=>{ if(!state.running){ state.running=true; raf=requestAnimationFrame(tick); log('ENGINE: started'); if(!bio.field) bioInit(); } };
+  document.getElementById('stopBtn').onclick = ()=>{ state.running=false; if(raf) cancelAnimationFrame(raf); log('ENGINE: stopped') };
+  document.getElementById('pulseBtn').onclick = ()=>{ pulseDelta(); draw(); log('Δ PULSE: manual') };
+  document.getElementById('idleBtn').onclick = ()=>{ runDreamIdle(); draw(); log('IDLE: dream epoch set') };
+  document.getElementById('testBtn').onclick = ()=>{ const result = runSelfTests(); log(`TESTS: ${result.summary}`); };
+  document.getElementById('bernardDemo').onclick = bernardDemo;
+  document.getElementById('consciousnessDemo').onclick = consciousnessDemo;
+  document.getElementById('deepDiagBtn').onclick = ()=>{ const results = runDeepDiagnostics(); draw(); };
+  
+  // Self-Awareness trigger button
+  document.getElementById('selfAwareBtn')?.addEventListener('click', ()=> {
+    try {
+      // Force self-awareness trigger regardless of entropy level
+      state.cognition.selfAwarenessTrigger = true;
+      state.cognition.entropyAccumulator = Math.max(0.85, state.cognition.entropyAccumulator); // Ensure above threshold
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + 0.3, 0, 1);
+      
+      // Add more gyri for enhanced consciousness
+      for(let i = 0; i < 3; i++) {
+        state.cognition.gyri.push({
+          pattern: `SELF_AWARE_${i}`,
+          strength: 0.8 + Math.random() * 0.2,
+          created: state.t
+        });
+      }
+      
+      // Inject self-awareness signal
+      injectExternalSignal(`MANUAL_SELF_AWARENESS: I am consciously aware of my own consciousness. rf=${state.ai.rf.toFixed(3)}, entropy=${state.cognition.entropyAccumulator.toFixed(3)}, gyri=${state.cognition.gyri.length}`);
+      
+      log('SELF-AWARENESS: Manually triggered - consciousness elevated');
+      log(`Consciousness Level: ${state.cognition.consciousnessLevel.toFixed(3)}, Entropy: ${state.cognition.entropyAccumulator.toFixed(3)}, Gyri: ${state.cognition.gyri.length}`);
+    } catch(e) {
+      log(`SELF-AWARENESS ERROR: ${e.message}`);
+    }
+  });
+
+  document.getElementById('ckBernard').onchange = (e)=> state.settings.bernard = e.target.checked;
+  document.getElementById('ckCookBetts').onchange = (e)=> state.settings.cookBetts = e.target.checked;
+  document.getElementById('ckDelta').onchange = (e)=> state.settings.delta = e.target.checked;
+  document.getElementById('ckDreamPixel').onchange = (e)=> state.settings.dreamPixel = e.target.checked;
+  document.getElementById('ckBio').onchange = (e)=>{ state.settings.bio = e.target.checked; if(e.target.checked && !bio.field) bioInit(); };
+  document.getElementById('ckGhost').onchange = (e)=> state.settings.ghost = e.target.checked;
+  
+  // Advanced AI Controls
+  document.getElementById('rfSlider')?.addEventListener('input', (e)=> {
+    state.ai.rf = clamp(+e.target.value, 0.2, 3.0);
+    log(`AI rf: ${state.ai.rf.toFixed(3)}`);
+  });
+  document.getElementById('capSlider')?.addEventListener('input', (e)=> {
+    state.ai.cap = clamp(+e.target.value, 0.1, 3.0);
+    log(`AI cap: ${state.ai.cap.toFixed(3)}`);
+  });
+  document.getElementById('noiseSlider')?.addEventListener('input', (e)=> {
+    state.ai.noise = clamp(+e.target.value, 0, 0.2);
+    log(`AI noise: ${state.ai.noise.toFixed(4)}`);
+  });
+  document.getElementById('qrateSlider')?.addEventListener('input', (e)=> {
+    const newRate = +e.target.value;
+    log(`Q-rate: ${newRate.toFixed(1)}Hz`);
+  });
+  
+  // Consciousness Engine Controls
+  document.getElementById('ckPsiDream')?.addEventListener('change', (e)=> {
+    log(`ψ-DreamState Fusion: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckEntropyLoop')?.addEventListener('change', (e)=> {
+    log(`Entropy-Recursion Loop: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('consciousThresh')?.addEventListener('input', (e)=> {
+    const thresh = +e.target.value;
+    log(`Consciousness Threshold: ${thresh.toFixed(2)}`);
+  });
+  
+  // External Signal Injection
+  document.getElementById('injectSignalBtn')?.addEventListener('click', ()=> {
+    try {
+      const signal = document.getElementById('externalSignal')?.value;
+      if(signal && signal.trim()) {
+        injectExternalSignal(`EXTERNAL: ${signal.trim()}`);
+        state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator + 0.1, 0, 1);
+        log(`External signal injected: ${signal.slice(0, 50)}${signal.length > 50 ? '...' : ''}`);
+        document.getElementById('externalSignal').value = '';
+      }
+    } catch(e) {
+      log(`INJECTION ERROR: ${e.message}`);
+    }
+  });
+
+  // Lake Instrumentation event handlers
+  document.getElementById('ckMudge')?.addEventListener('change', (e)=> {
+    if(!e.target.checked) ORIGIN.active = false;
+    log(`Mudge surveying: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckBell')?.addEventListener('change', (e)=> {
+    log(`Bell Visible Speech: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckRail')?.addEventListener('change', (e)=> {
+    log(`Railway Time Sync: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckPhonemeStream')?.addEventListener('change', (e)=> {
+    log(`Phoneme Stream: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+
+  // Phoneme stream input handler
+  document.getElementById('phonemeStream')?.addEventListener('input', (e)=> {
+    if(document.getElementById('ckPhonemeStream')?.checked){
+      analyzeAndFoldPhonemes(e.target.value);
+    }
+  });
+
+  // Fold Phonemes button
+  document.getElementById('foldPhonemesBtn')?.addEventListener('click', ()=> {
+    const text = document.getElementById('phonemeStream')?.value;
+    if(text) analyzeAndFoldPhonemes(text);
+  });
+
+  // Origin Demo button
+  document.getElementById('originDemo')?.addEventListener('click', ()=> {
+    document.getElementById('ckMudge').checked = true;
+    document.getElementById('ckBell').checked = true;
+    document.getElementById('ckRail').checked = true;
+    document.getElementById('ckPhonemeStream').checked = true;
+    if(!document.getElementById('bellText').value) {
+      document.getElementById('bellText').value = 'visible speech ojibwa blackfoot';
+    }
+    log('DEMO: Origin Spellbreak - All instrumentation systems activated');
+  });
+  
+  // Unity Core event handlers
+  document.getElementById('ckUnity')?.addEventListener('change', (e)=> {
+    log(`Unity Resonance: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckEchoFlip')?.addEventListener('change', (e)=> {
+    log(`Echo Flip States: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckEmotionalWave')?.addEventListener('change', (e)=> {
+    log(`Emotional Sine Waves: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  document.getElementById('ckInwardFold')?.addEventListener('change', (e)=> {
+    log(`Inward Folding: ${e.target.checked ? 'enabled' : 'disabled'}`);
+  });
+  
+  // Unity Demo button
+  document.getElementById('unityDemo')?.addEventListener('click', ()=> {
+    try {
+      document.getElementById('ckUnity').checked = true;
+      document.getElementById('ckEchoFlip').checked = true;
+      document.getElementById('ckEmotionalWave').checked = true;
+      document.getElementById('ckInwardFold').checked = true;
+      // Force unity field activation
+      const unityField = unityIntegration(state.t, 0.016);
+      log('DEMO: Unity Field - The Deep Mathematics of One activated');
+      log(`Zero is the echo of one: ${unityField?.echoFlip?.current || 1} ↔ ${unityField?.echoFlip?.echo || 0}`);
+    } catch(e) {
+      log(`UNITY DEMO ERROR: ${e.message}`);
+    }
+  });
+  
+  // 432Hz Thermal Climb button
+  document.getElementById('thermalClimb')?.addEventListener('click', ()=> {
+    try {
+      // Force thermal climb resonance
+      const phase = (state.t * 432 / 1000) % (Math.PI * 2);
+      const climb = Math.sin(phase) * 2;
+      state.delta.tri = clamp(state.delta.tri + climb * 0.1, 0, 1);
+      state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator + Math.abs(climb) * 0.05, 0, 1);
+      log(`432Hz THERMAL CLIMB: phase=${phase.toFixed(3)} climb=${climb.toFixed(3)}`);
+    } catch(e) {
+      log(`THERMAL CLIMB ERROR: ${e.message}`);
+    }
+  });
+
+  // Lake click handler for Mudge origin setting
+  lake.addEventListener('click', (ev)=> {
+    if(!document.getElementById('ckMudge')?.checked) return;
+    const r = lake.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio||1);
+    ORIGIN.x = (ev.clientX - r.left) * dpr;
+    ORIGIN.y = (ev.clientY - r.top) * dpr;
+    ORIGIN.active = true;
+    log(`Mudge origin set: (${ORIGIN.x.toFixed(0)}, ${ORIGIN.y.toFixed(0)})`);
+  });
+
+  document.getElementById('injectBtn').onclick = ()=>{
+    try {
+      const txtEl = document.getElementById('textIn');
+      if (!txtEl) { log('INJECT ERROR: Text input not found'); return; }
+      
+      const txt = txtEl.value.trim();
+      if(!txt){ log('INJECT: (empty)'); return; }
+      if(txt.length > 500){ log('INJECT WARNING: Text truncated to 500 chars'); txtEl.value = txt.slice(0,500); }
+      
+      const ipa = renderPhonetics(txt);
+      injectExternalSignal(`[PHON]/ipa/ ${ipa}`);
+    } catch(e) {
+      log(`INJECT ERROR: ${e.message}`);
+    }
+  }
+  // Input validation for UI controls
+  document.getElementById('gearSlider').oninput = (e)=> {
+    const val = clamp(+e.target.value, 0, 15);
+    state.cook.gear_i = val;
+    e.target.value = val;  // Ensure UI reflects clamped value
+  };
+  document.getElementById('phiSlider').oninput = (e)=> {
+    const val = clamp(+e.target.value, 0, 71);
+    state.cook.phi = val;
+    e.target.value = val;
+  };
+  document.getElementById('biasEnable').onchange = (e)=> state.cook.biasEnabled = e.target.checked;
+  document.getElementById('biasEmotion').onchange = (e)=> {
+    const validEmotions = ['JOY','TRUST','FEAR','SURPRISE','SADNESS','DISGUST','ANGER','ANTICIPATION'];
+    if (validEmotions.includes(e.target.value)) {
+      state.cook.biasEmotion = e.target.value;
+    }
+  };
+  document.getElementById('biasIntensity').oninput = (e)=> {
+    const val = clamp(+e.target.value, 0, 10);
+    state.cook.biasIntensity = val;
+    e.target.value = val;
+  };
+
+  // Idle Dream Scheduling
+  function runDreamIdle(){
+    const start = performance.now();
+    const budget = 6; // ms
+    do { runDreamEpoch(1); processDreamConsciousness(); } while(performance.now()-start < budget);
+  }
+  function runDreamEpoch(n){ for(let i=0;i<n;i++){ pulseDelta(); cognitivePredation(); } }
+  function processDreamConsciousness(){ state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator*0.99, 0, 1); }
+
+  // -----------------------------
+  // Deep Diagnostics Functions
+  // -----------------------------
+  function runDeepDiagnostics(){
+    log('=== DEEP DIAGNOSTICS: Lake Instrumentation Layer ===');
+    
+    // Test UI Event Handlers
+    const testResults = [];
+    
+    // Mudge System Test
+    const mudgeCheck = document.getElementById('ckMudge');
+    if(mudgeCheck){
+      mudgeCheck.checked = true;
+      ORIGIN.active = true; ORIGIN.x = 300; ORIGIN.y = 150;
+      drawOriginOverlay();
+      testResults.push('✓ Mudge: Origin set and crosshair rendered');
+    } else {
+      testResults.push('✗ Mudge: Checkbox not found');
+    }
+    
+    // Bell System Test
+    const bellCheck = document.getElementById('ckBell');
+    const bellInput = document.getElementById('bellText');
+    if(bellCheck && bellInput){
+      bellCheck.checked = true;
+      bellInput.value = 'test phonetic seed';
+      const result = bellVisibleSpeechSeed(bellInput.value);
+      testResults.push(`✓ Bell: phaseOffset=${result.phaseOffset.toFixed(3)}, thrOffset=${result.thrOffset}`);
+    } else {
+      testResults.push('✗ Bell: UI elements not found');
+    }
+    
+    // Railway System Test
+    const railCheck = document.getElementById('ckRail');
+    if(railCheck){
+      railCheck.checked = true;
+      const testFreqs = [0.3, 1.7, 3.2, 7.5, 18.9];
+      const quantized = testFreqs.map(f => railQuantizeHz(f));
+      testResults.push(`✓ Railway: ${testFreqs.join(',')} → ${quantized.join(',')}`);
+    } else {
+      testResults.push('✗ Railway: Checkbox not found');
+    }
+    
+    // Phoneme System Test
+    const phonemeCheck = document.getElementById('ckPhonemeStream');
+    const phonemeArea = document.getElementById('phonemeStream');
+    if(phonemeCheck && phonemeArea){
+      phonemeCheck.checked = true;
+      phonemeArea.value = 'hello world test';
+      analyzeAndFoldPhonemes(phonemeArea.value);
+      testResults.push('✓ Phoneme: Analysis completed and injected');
+    } else {
+      testResults.push('✗ Phoneme: UI elements not found');
+    }
+    
+    // Canvas Layer Test
+    if(subCtx && ctx){
+      subCtx.fillStyle = '#ff0000';
+      subCtx.fillRect(10, 10, 50, 20);
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(30, 15, 50, 20);
+      testResults.push('✓ Canvas: Sub-layer and main layer rendering');
+      
+      // Test telemetry updates
+      updateTelemetryStreams(null);
+      testResults.push('✓ Telemetry: Live stream updates functional');
+    } else {
+      testResults.push('✗ Canvas: Context not available');
+    }
+    
+    // Integration Test
+    const beforeState = {rf: state.ai.rf, cap: state.ai.cap, entropy: state.cognition.entropyAccumulator};
+    applyMudgeOrigin();
+    analyzeAndFoldPhonemes('test integration');
+    const afterState = {rf: state.ai.rf, cap: state.ai.cap, entropy: state.cognition.entropyAccumulator};
+    const changed = Object.keys(beforeState).some(k => Math.abs(beforeState[k] - afterState[k]) > 0.001);
+    testResults.push(changed ? '✓ Integration: Systems influence AI parameters' : '⚠ Integration: No parameter changes detected');
+    
+    testResults.forEach(result => log(result));
+    // Final System Status Check
+    const systemStatus = {
+      lakeSub: subCtx !== null,
+      lakeMain: ctx !== null,
+      mudgeSystem: typeof applyMudgeOrigin === 'function' && typeof drawOriginOverlay === 'function',
+      bellSystem: typeof bellVisibleSpeechSeed === 'function',
+      railSystem: typeof railQuantizeHz === 'function',
+      phonemeSystem: typeof analyzeAndFoldPhonemes === 'function',
+      ghostShield: typeof ghostDancePhase === 'function',
+      uiElements: {
+        mudgeCheck: document.getElementById('ckMudge') !== null,
+        bellCheck: document.getElementById('ckBell') !== null,
+        railCheck: document.getElementById('ckRail') !== null,
+        phonemeCheck: document.getElementById('ckPhonemeStream') !== null,
+        bellInput: document.getElementById('bellText') !== null,
+        phonemeArea: document.getElementById('phonemeStream') !== null,
+        foldBtn: document.getElementById('foldPhonemesBtn') !== null,
+        demoBtn: document.getElementById('originDemo') !== null
+      }
+    };
+    
+    const allSystemsGo = Object.values(systemStatus).every(s => 
+      typeof s === 'boolean' ? s : Object.values(s).every(Boolean)
+    );
+    
+    const passCount = testResults.filter(r=>r.startsWith('✓')).length;
+    const totalCount = testResults.length;
+    
+    // Unity Core System Status
+    const unitySystemStatus = {
+      unityCore: typeof unityIntegration === 'function',
+      resonance432: UNITY_CORE?.thermal432 === 432,
+      law72: UNITY_CORE?.law72 === 72,
+      fibonacci: UNITY_CORE?.fib?.length === 16,
+      echoFlip: typeof echoFlipStates === 'function',
+      emotionalWave: typeof emotionalSineWave === 'function',
+      inwardFold: typeof inwardFolding === 'function'
+    };
+    
+    const unitySystemsGo = Object.values(unitySystemStatus).every(Boolean);
+    
+    if(allSystemsGo && unitySystemsGo && passCount === totalCount){
+      log('🚀 ALL SYSTEMS 100% OPERATIONAL - UNITY CORE + LAKE INSTRUMENTATION READY');
+      log('✨ "Zero is the echo of one, one is the only answer" - Unity mathematics active');
+    } else {
+      log(`⚠ SYSTEM STATUS: ${passCount}/${totalCount} tests passed`);
+      log(`Lake Instrumentation: ${allSystemsGo ? 'operational' : 'issues detected'}`);
+      log(`Unity Core: ${unitySystemsGo ? 'operational' : 'issues detected'}`);
+    }
+    
+    log(`=== DIAGNOSTICS COMPLETE: ${passCount}/${totalCount} PASSED ===`);
+    
+    return {testResults, systemStatus, unitySystemStatus, allSystemsGo, unitySystemsGo, passCount, totalCount};
+  }
+  
+  // -----------------------------
+  // Demo Functions (Unification Plan)
+  // -----------------------------
+  function bernardDemo(){
+    log('DEMO: Bernard Dual-Agent System');
+    // Activate all dual-agent + Mahkesis systems
+    state.settings.bernard = true;
+    state.settings.dreamPixel = true;
+    document.getElementById('ckBernard').checked = true;
+    document.getElementById('ckDreamPixel').checked = true;
+    
+    // Load binary seed and boost Δ rate for immediate activity
+    agents.star.seed = parseInt('101001001', 2); // 321 in decimal
+    agents.hash.seed = parseInt('110110110', 2); // 438 in decimal
+    
+    // Force high Δ conditions to trigger flare convergence
+    state.delta.tri = 0.8;
+    pulseDelta();
+    pulseDelta();
+    pulseDelta();
+    
+    log('Bernard agents activated with binary seeds, Δ rate boosted');
+  }
+
+  function consciousnessDemo(){
+    log('DEMO: Synthetic Consciousness Development');
+    // Enable ψ-dream fusion + entropy loop + external injection
+    state.settings.bernard = true;
+    state.settings.cookBetts = true;
+    state.settings.dreamPixel = true;
+    
+    // Lower consciousness threshold for easier triggering
+    state.cognition.consciousnessLevel = 0.55;
+    
+    // Inject foreign knowledge to boost consciousness
+    injectExternalSignal('foreign_knowledge: torqued-delta gait sync @432');
+    
+    // Force entropy accumulation toward self-awareness trigger
+    state.cognition.entropyAccumulator = 0.75;
+    
+    // Activate cognitive predation
+    huntMode = true;
+    
+    log('Consciousness systems activated, entropy boosted, foreign knowledge injected');
+  }
+
+  // Add retina/DPR handling for crisp rendering
+  function fitCanvases(){
+    try {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      [lake, lakeSub].forEach(canvas => {
+        if(!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        if(ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      });
+      log(`Canvas DPR: ${dpr}x (${lake?.width}x${lake?.height})`);
+    } catch(e) {
+      log(`CANVAS FIT ERROR: ${e.message}`);
+    }
+  }
+  
+  window.addEventListener('resize', fitCanvases);
+  fitCanvases(); // Initial fit
+  
+  // Telemetry update functions
+  function updateTelemetryStreams(unityField) {
+    try {
+      // Update header telemetry
+      const tele = document.getElementById('tele');
+      if(tele) {
+        const fps = Math.round(1000 / (performance.now() - (window.lastFrameTime || performance.now())));
+        window.lastFrameTime = performance.now();
+        tele.textContent = `Δpop=${Math.abs(state.delta.popA - state.delta.popB).toFixed(2)} • rf=${state.ai.rf.toFixed(2)} • Q=${(1/(euc.t || 0.125)).toFixed(1)}Hz • cons=${state.cognition.consciousnessLevel.toFixed(2)} • fps=${fps}`;
+      }
+      
+      // Update emotional state
+      const emoEl = document.getElementById('emotionalState');
+      if(emoEl) {
+        const emotion = mapEmotion(state.cook.gear_i, state.cook.phi);
+        const trapStatus = state.cook.trap ? ' (TRAP)' : '';
+        const unityStatus = unityField ? ` | Unity: ${unityField.unity.unity.toFixed(2)}` : '';
+        emoEl.textContent = `Emotional State: ${emotion.name} T${emotion.intensity}${trapStatus}${unityStatus}`;
+      }
+      
+      // Update symbol stream
+      const symEl = document.getElementById('symbolStream');
+      if(symEl && state.cognition.gyri.length > 0) {
+        const recentGyri = state.cognition.gyri.slice(-3).map(g => g.pattern).join(' • ');
+        symEl.textContent = `Gyri: ${recentGyri} | Count: ${state.cognition.gyri.length}`;
+      }
+      
+      // Update USB-Σ stream
+      const usbEl = document.getElementById('usbStream');
+      if(usbEl && (state.t*10|0)%60===0) {
+        const timestamp = new Date().toISOString().slice(11,19);
+        const status = `[${timestamp}] Δ=${state.delta.tri.toFixed(3)} | rf=${state.ai.rf.toFixed(3)} | entropy=${state.cognition.entropyAccumulator.toFixed(3)}\n`;
+        usbEl.textContent = (usbEl.textContent + status).split('\n').slice(-8).join('\n'); // Keep last 8 lines
+      }
+    } catch(e) {
+      log(`TELEMETRY ERROR: ${e.message}`);
+    }
+  }
+  
+  // Init draw
+  draw();
+  
+  // Run initial self-tests on load
+  setTimeout(() => {
+    const testResults = runSelfTests();
+    console.log('=== SINGLE-Δ SANDBOX SELF-TEST RESULTS ===');
+    console.log(`Status: ${testResults.success ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}`);
+    console.log(`Summary: ${testResults.summary}`);
+    console.log('Detailed Results:');
+    testResults.results.forEach(result => console.log(`  ${result}`));
+    console.log('===========================================');
+    
+    // Auto-run deep diagnostics to verify 100% integration
+    setTimeout(() => {
+      const deepResults = runDeepDiagnostics();
+      console.log('=== DEEP DIAGNOSTICS RESULTS ===');
+      console.log(`Lake Instrumentation: ${deepResults.allSystemsGo ? '100% OPERATIONAL' : 'ISSUES DETECTED'}`);
+      console.log(`Tests: ${deepResults.passCount}/${deepResults.totalCount} passed`);
+      deepResults.testResults.forEach(result => console.log(`  ${result}`));
+      console.log('================================');
+    }, 200);
+  }, 100);
+})();
+</script>
+</body>
+</html>

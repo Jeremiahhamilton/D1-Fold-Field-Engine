@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wind/Lake Superstate — Single-Δ No‑Zero Law (HTML‑only)</title>
+<style>
+  :root{
+    --bg:#0b0f18; --fg:#e9f0ff; --muted:#9fb0d6; --card:#111a2b; --line:#1e2a44;
+    --wind:#9aa6ff; --lake:#7be389; --flip:#f7b267; --pill:#172443; --accent:#a9ffe0;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+  header{padding:14px 16px;border-bottom:1px solid var(--line);background:#0f1a2e}
+  h1{margin:0 0 2px;font-size:18px}
+  .sub{color:var(--muted);font-size:12px}
+  main{max-width:980px;margin:0 auto;padding:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px 0}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  .col{display:flex;flex-direction:column;gap:8px}
+  label{font-size:12px;color:var(--muted)}
+  input[type=range]{width:220px}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--pill);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px}
+  button{background:#0f1a2e;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:6px 10px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .legend{display:flex;gap:12px;flex-wrap:wrap}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .wind{background:var(--wind)}
+  .lake{background:var(--lake)}
+  .flipc{background:var(--flip)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  svg{width:100%;height:auto;display:block;background:#0d1525;border-radius:12px;border:1px solid var(--line)}
+  .hint{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Wind/Lake Superstate — Single‑Δ (No‑Zero)</h1>
+  <div class="sub">Two separated domains (wind=+, lake=−) remain synchronized; if either side hits zero, the other echoes to prevent stasis.</div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="row legend">
+      <span class="pill"><span class="dot wind"></span> Wind (+)</span>
+      <span class="pill"><span class="dot lake"></span> Lake (−)</span>
+      <span class="pill"><span class="dot flipc"></span> Echo‑guard flip</span>
+      <span class="pill mono">Invariant: |Δ| = 1</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <div class="col">
+        <label>Amplitude <span id="ampVal" class="mono"></span></label>
+        <input id="amp" type="range" min="-200" max="200" value="70" />
+      </div>
+      <div class="col">
+        <label>Wavelength (px) <span id="waveVal" class="mono"></span></label>
+        <input id="wlen" type="range" min="1" max="1477" value="480" />
+      </div>
+      <div class="col">
+        <label>Speed <span id="spdVal" class="mono"></span></label>
+        <input id="speed" type="range" min="-1000000" max="1000000" value="22" />
+      </div>
+      <div class="col">
+        <label>Vertical offset (split) <span id="offVal" class="mono"></span></label>
+        <input id="offset" type="range" min="-100" max="100" value="1" />
+      </div>
+      <div class="col">
+        <label>Echo‑guard band (|sin| &lt;) <span id="bandVal" class="mono"></span></label>
+        <input id="band" type="range" min="0" max="100" value="1" />
+      </div>
+      <div class="col" style="align-self:flex-end">
+        <button id="toggleMarkers">Markers: ON</button>
+      </div>
+      <div class="col" style="align-self:flex-end">
+        <button id="pause">Pause</button>
+      </div>
+      <div class="col" style="align-self:flex-end">
+        <span class="pill">Flips: <span id="flipCount" class="mono">0</span></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <svg id="view" viewBox="0 0 960 420" preserveAspectRatio="xMidYMid meet" aria-label="Wind/Lake Superstate">
+      <defs>
+        <filter id="glowW" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="g"/>
+          <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glowL" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="g"/>
+          <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- mid line (thermocline τ) -->
+      <line id="tau" x1="0" y1="210" x2="960" y2="210" stroke="#1e2a44" stroke-dasharray="6 6"/>
+      <!-- groups for curves and markers -->
+      <g id="curves"></g>
+      <g id="markers"></g>
+    </svg>
+    <div class="hint">No external libs. The lake mirrors the wind. When |sin| &lt; band, the echo‑guard flips to keep Δ ≠ 0 (highlighted markers).</div>
+  </section>
+</main>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const UI = {
+    amp: $('amp'), ampVal: $('ampVal'),
+    wlen: $('wlen'), waveVal: $('waveVal'),
+    speed: $('speed'), spdVal: $('spdVal'),
+    offset: $('offset'), offVal: $('offVal'),
+    band: $('band'), bandVal: $('bandVal'),
+    pause: $('pause'), markersBtn: $('toggleMarkers'),
+    flipCount: $('flipCount'), svg: $('view'),
+    curves: $('curves'), dots: $('markers')
+  };
+
+  // State
+  let amp = +UI.amp.value;
+  let wlen = +UI.wlen.value;     // wavelength in pixels
+  let speed = +UI.speed.value/100; // rad/sec scale
+  let vOff = +UI.offset.value;   // vertical split offset
+  let band = (+UI.band.value)/100; // guard band in |sin| units
+  let showMarkers = true;
+  let paused = false;
+  let flipsTotal = 0;
+
+  // Viewbox
+  const W = 960, H = 420, mid = H/2;
+  const samples = 640; // resolution across x
+  const dx = W / (samples-1);
+
+  // Paths
+  const pathWind = document.createElementNS('http://www.w3.org/2000/svg','path');
+  const pathLake = document.createElementNS('http://www.w3.org/2000/svg','path');
+  pathWind.setAttribute('fill','none');
+  pathLake.setAttribute('fill','none');
+  pathWind.setAttribute('stroke','var(--wind)');
+  pathLake.setAttribute('stroke','var(--lake)');
+  pathWind.setAttribute('stroke-width','2');
+  pathLake.setAttribute('stroke-width','2');
+  pathWind.setAttribute('filter','url(#glowW)');
+  pathLake.setAttribute('filter','url(#glowL)');
+  UI.curves.appendChild(pathWind);
+  UI.curves.appendChild(pathLake);
+
+  function setText(){
+    UI.ampVal.textContent = amp.toFixed(0);
+    UI.waveVal.textContent = wlen.toFixed(0);
+    UI.spdVal.textContent = (speed).toFixed(2);
+    UI.offVal.textContent = vOff.toFixed(0);
+    UI.bandVal.textContent = band.toFixed(2);
+  }
+  setText();
+
+  // Controls
+  UI.amp.oninput = ()=>{ amp = +UI.amp.value; setText(); };
+  UI.wlen.oninput = ()=>{ wlen = +UI.wlen.value; setText(); };
+  UI.speed.oninput = ()=>{ speed = +UI.speed.value/100; setText(); };
+  UI.offset.oninput = ()=>{ vOff = +UI.offset.value; setText(); };
+  UI.band.oninput = ()=>{ band = (+UI.band.value)/100; setText(); };
+  UI.markersBtn.onclick = ()=>{ showMarkers = !showMarkers; UI.markersBtn.textContent = `Markers: ${showMarkers? 'ON':'OFF'}`; };
+  UI.pause.onclick = ()=>{ paused = !paused; UI.pause.textContent = paused? 'Resume':'Pause'; if(!paused) raf(); };
+
+  // Utility to append a marker dot
+  function dot(x,y){
+    if(!showMarkers) return;
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx', x);
+    c.setAttribute('cy', y);
+    c.setAttribute('r', 3.2);
+    c.setAttribute('fill','var(--flip)');
+    UI.dots.appendChild(c);
+  }
+
+  let t0 = performance.now();
+  let phase = 0;
+
+  function frame(now){
+    const dt = (now - t0)/1000; t0 = now;
+    phase += dt * speed * 2*Math.PI; // radians advance
+
+    // Clear markers each frame for cleanliness
+    while (UI.dots.firstChild) UI.dots.removeChild(UI.dots.firstChild);
+
+    let dW = '', dL = '';
+    let lastFlipAt = -999;
+
+    const k = 2*Math.PI / wlen; // spatial frequency
+
+    for(let i=0;i<samples;i++){
+      const x = i*dx;
+      const s = Math.sin(k*x + phase); // base sine [-1,1]
+
+      // Raw curves (mirrors), with vertical split
+      const yWind = mid - vOff - amp * s;      // wind above
+      const yLake = mid + vOff + amp * s;      // mirrored below (note +s for geometric mirror)
+
+      // Step paths
+      dW += (i? ' L':'M') + x.toFixed(2) + ' ' + yWind.toFixed(2);
+      dL += (i? ' L':'M') + x.toFixed(2) + ' ' + yLake.toFixed(2);
+
+      // Binary superstate (A,B) from sign(s)
+      const A = s > 0 ? 1 : 0;      // wind domain pulse
+      const Braw = s < 0 ? 1 : 0;   // lake domain pulse (mirror)
+
+      // Echo‑guard: if |s| < band => potential zero; enforce Δ ≠ 0
+      const needsFlip = Math.abs(s) < band;
+      let B = Braw;
+      if(needsFlip){
+        // ensure (A,B) ∈ {(1,0),(0,1)}; choose to flip lake when ambiguous
+        if(A === B){ B = 1 - B; }
+        // place a small marker near τ to indicate correction
+        if (x - lastFlipAt > 8){
+          dot(x, mid + (A? vOff+8 : -vOff-8));
+          lastFlipAt = x;
+          flipsTotal++;
+        }
+      }
+    }
+
+    pathWind.setAttribute('d', dW);
+    pathLake.setAttribute('d', dL);
+    UI.flipCount.textContent = String(flipsTotal);
+  }
+
+  function raf(){ if(paused) return; frame(performance.now()); requestAnimationFrame(raf); }
+  requestAnimationFrame(raf);
+})();
+</script>
+</body>
+</html>

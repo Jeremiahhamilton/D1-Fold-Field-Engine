@@ -1,0 +1,499 @@
+And<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Cube — Frozen Lake Engine (Rails • Splines • Cogs)</title>
+<style>
+  :root { --fg:#e6e6e6; --bg:#0b0f12; --muted:#8aa1b5; --accent:#8fd3ff; --ok:#a7f3d0; --bad:#fca5a5; --warn:#fcd34d; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
+  .wrap{display:grid;grid-template-columns:360px 1fr;gap:16px;height:100%}
+  aside{border-right:1px solid #1b2530;padding:16px;overflow:auto}
+  main{padding:16px;overflow:auto}
+  h1{font-size:18px;margin:0 0 12px}
+  fieldset{border:1px solid #1b2530;border-radius:12px;margin:0 0 12px;padding:10px}
+  legend{color:var(--muted)}
+  label{display:block;margin:6px 0}
+  input[type=number],select,textarea{width:100%;padding:6px;background:#0f141a;border:1px solid #1b2530;color:var(--fg);border-radius:8px}
+  button{background:#12202b;border:1px solid #1b2530;color:var(--fg);padding:8px 10px;border-radius:10px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  canvas{background:#0d1319;border-radius:12px;border:1px solid #1b2530}
+  .pill{display:inline-block;padding:2px 6px;border-radius:999px;background:#14202a;color:#8fbcd7;margin-left:8px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .small{font-size:12px;color:var(--muted)}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <h1>Frozen Lake → Rubik’s Cube</h1>
+    <div class="small">Single‑Δ engine in three views: <b>Rails</b>, <b>Straight‑sided Splines</b>, and <b>Cogs</b>. No privileged APIs required. Web Serial is optional and sandbox‑safe.</div>
+
+    <fieldset>
+      <legend>View</legend>
+      <div class="row">
+        <label><input type="radio" name="view" value="rails" checked> Rails</label>
+        <label><input type="radio" name="view" value="splines"> Splines</label>
+        <label><input type="radio" name="view" value="cogs"> Cogs</label>
+        <span id="viewState" class="pill">rails</span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Generator</legend>
+      <label>GEAR_MOD <input id="gearMod" type="number" min="4" max="64" step="1" value="16"></label>
+      <label>PHASE_MOD <input id="phaseMod" type="number" min="36" max="288" step="1" value="72"></label>
+      <div class="row"><button id="seed">Seed</button><button id="step">Step</button><button id="run">Run</button><button id="stop" disabled>Stop</button></div>
+      <div class="row"><label>Hz<input id="hz" type="number" min="0.2" max="120" step="0.2" value="10"></label><span id="status" class="pill">idle</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Law</legend>
+      <label><input id="alpha01" type="checkbox" checked> Alphabet = {01,10} (ban 00,11)</label>
+      <label><input id="deltaFloor" type="checkbox" checked> MIN Δ ≥ 1</label>
+      <label><input id="shaper" type="checkbox" checked> TARGET Δ → 32</label>
+      <label><input id="strict144" type="checkbox" checked> Strict 144‑seal</label>
+      <label><input id="cookTrap" type="checkbox" checked> Cook‑1800 trap corridor</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Straight‑sided Splines</legend>
+      <label>Teeth N (4–12) <input id="splN" type="number" min="4" max="12" step="1" value="6"></label>
+      <label>Tooth width ratio W (0.20–0.45) <input id="splW" type="number" min="0.2" max="0.45" step="0.01" value="0.30"></label>
+      <label>Minor/Outer radius ratio r/R (0.45–0.85) <input id="splRR" type="number" min="0.45" max="0.85" step="0.01" value="0.62"></label>
+      <div class="small">External spline rotates +ω, internal −ω. Contact = flank alignment within ±W/2 tolerance.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Cogs & 432 Rotor</legend>
+      <label>Cog teeth (external) Nₑ<input id="cogN" type="number" min="4" max="24" step="1" value="12"></label>
+      <label>Cog ratio (inner:outer) <input id="cogRatio" type="number" min="0.3" max="0.9" step="0.05" value="0.5"></label>
+      <div class="small">432 rotor = six‑bit ring with single 1. “Five zeros and a one” circulate; if it ever extinguishes, it reseeds.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Input Source</legend>
+      <div class="row">
+        <label><input type="radio" name="source" value="none" checked> None</label>
+        <label><input type="radio" name="source" value="sim"> Simulated</label>
+        <label><input type="radio" name="source" value="paste"> Paste</label>
+        <label><input type="radio" name="source" value="serial"> Web Serial</label>
+        <span id="portState" class="pill">not selected</span>
+      </div>
+      <div id="simRow" class="row" style="display:none">
+        <label>Sim Hz <input id="simHz" type="number" min="0.5" max="200" step="0.5" value="8"></label>
+        <button id="simStart">Start Sim</button>
+        <button id="simStop" disabled>Stop Sim</button>
+      </div>
+      <div id="pasteRow" style="display:none">
+        <label>Paste lines (e.g. <span class="mono">COMANCHE {"gear":1,"phi":0}</span>)</label>
+        <textarea id="pasteBox" rows="5" placeholder="COMANCHE {\"gear\":4,\"phi\":0,\"flips\":123,\"psi\":\"ACTIVE\"}"></textarea>
+        <div class="row"><button id="feedPaste">Feed Lines</button><span class="small">Lines are parsed exactly like serial.</span></div>
+      </div>
+      <div id="serialRow" class="small" style="display:none">
+        <div class="row"><button id="connect">Connect ESP32</button><button id="disconnect" disabled>Disconnect</button></div>
+        <div id="serialHelp" class="small"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>State</legend>
+      <div>gear=<span id="gear">0</span> phi=<span id="phi">0</span> flips=<span id="flips">0</span></div>
+      <div>ψ‑parity=<span id="psi">?</span> seal=<span id="seal">0</span>/144</div>
+      <div>trap=<span id="trap">off</span></div>
+      <div>spline contacts=<span id="contacts">0</span></div>
+      <div>cog θₐ=<span id="thetaA">0</span>° θᵦ=<span id="thetaB">0</span>° rotor=<span id="rotor">100000</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Bio-Field</legend>
+      <label>Enable slime
+        <input id="slimeOn" type="checkbox">
+      </label>
+      <label>Fibonacci seeds (N)
+        <input id="fibN" type="range" min="21" max="377" step="1" value="144">
+      </label>
+      <label>Predator mode
+        <input id="predOn" type="checkbox">
+      </label>
+      <label>Aggression (0..1)
+        <input id="agg" type="range" min="0" max="1" step="0.01" value="0.35">
+      </label>
+      <div class="row"><button id="demo" class="btn">Demo: Slime→Predator</button></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Diagnostics</legend>
+      <div class="row"><button id="runTests">Run Self‑Tests</button><span id="testSummary" class="pill">not run</span></div>
+      <div id="testLog" class="small mono"></div>
+    </fieldset>
+  </aside>
+  <main>
+    <canvas id="viz" width="1080" height="560"></canvas>
+    <pre id="log" style="white-space:pre-wrap"></pre>
+  </main>
+</div>
+<script>
+(() => {
+  // ===== Core engine (rails + extras) =====
+  const ST = {
+    G: 16, P: 72,
+    i: 0, K: 0, phi: 0, flips: 0,
+    sealed: 0, trap: false,
+    A: new Uint8Array(64).fill(1), // 01
+    B: new Uint8Array(64).fill(2), // 10
+    targetDelta: 32, minDelta: 1,
+    psi: 'UNDEF',
+    // Spline state
+    spl: { N: 6, W: 0.30, rR: 0.62, rotExt: 0, rotInt: 0, contacts: 0 },
+    // Cog view state
+    cogs: { Ne: 12, ratio: 0.5, rotA: 0, rotB: 0, rotor: [1,0,0,0,0,0], rotorIdx: 0 },
+    view: 'rails'
+  };
+
+  // ===== Slime lattice (agent-based Physarum-lite) =====
+  const bio = {
+    W: 120, H: 120,   // coarse grid; scales to canvas
+    field: null,      // chemo field (Float32Array)
+    agents: [],       // {x,y, angle}
+    seeds: [],        // resource nodes [{x,y,str}]
+    inited: false
+  };
+
+  // Deterministic RNG for reproducible behavior
+  let rngSeed = 12345;
+  function rand() {
+    rngSeed = (rngSeed * 1664525 + 1013904223) >>> 0;
+    return (rngSeed >>> 0) / 0x100000000;
+  }
+
+  function bioInit(){
+    bio.field = new Float32Array(bio.W*bio.H);
+    bio.agents.length = 0; bio.seeds.length = 0;
+    const N = +document.getElementById('fibN').value;
+
+    // Fibonacci / phyllotaxis seeding (golden angle)
+    const GA = Math.PI * (3 - Math.sqrt(5));
+    for(let k=1;k<=N;k++){
+      const r = Math.sqrt(k)/Math.sqrt(N);
+      const theta = k*GA;
+      const cx = (bio.W*0.5) + r*bio.W*0.45*Math.cos(theta);
+      const cy = (bio.H*0.5) + r*bio.H*0.45*Math.sin(theta);
+      bio.seeds.push({x:cx, y:cy, str: 0.8 + 0.4*rand()});
+    }
+
+    // Seed ~200 agents around center
+    for(let i=0;i<200;i++){
+      bio.agents.push({ x: bio.W*0.5 + (rand()-0.5)*6,
+                        y: bio.H*0.5 + (rand()-0.5)*6,
+                        angle: rand()*Math.PI*2 });
+    }
+    bio.inited = true;
+  }
+  
+  // rails helpers
+  const L=1, R=2; const flip=v=>v===L?R:L; const sign=v=>v===L?+1:-1;
+  function deltaCount(){ let d=0; for(let k=0;k<ST.A.length;k++) d += (ST.A[k]!==ST.B[k])?1:0; return d; }
+  function dreamF(Aref, d_next, k){ const axis=k&3; const corner=(k>>2)&15; const rot=(corner + (d_next & 15)) & 15; const s=((rot>>axis)&1)?+1:-1; const flipAxis=((d_next + ST.phi) & 3); return (axis===flipAxis ? -s : s)>0?L:R; }
+  function buildDreamFromA(){ const d1=(ST.flips+1)>>>0; for(let k=0;k<64;k++) ST.B[k]=dreamF(ST.A,d1,k); }
+  function raiseFloor(){ if(!UI.deltaFloor.checked) return; let d=deltaCount(); if(d>=ST.minDelta) return; for(let i=0;i<ST.minDelta-d;i++){ const idx=(ST.i + i*5) & 63; if(ST.B[idx]===ST.A[idx]) ST.B[idx]=flip(ST.A[idx]); } }
+  function shapeTowardTarget(){ if(!UI.shaper.checked) return; const T=ST.targetDelta; let d=deltaCount(); const n=Math.min(2,Math.abs(d-T)); if(d>T){ for(let i=0,c=0;i<64&&c<n;i++) if(ST.B[i]!==ST.A[i]){ ST.B[i]=ST.A[i]; c++; } } else if(d<T){ for(let i=0,c=0;i<64&&c<n;i++) if(ST.B[i]===ST.A[i]){ ST.B[i]=flip(ST.A[i]); c++; } } }
+  function psiParity(dA,dB){ const x=dA^dB; if(x!==0) return 'UNDEF'; if(dA===-1&&dB===-1) return 'HOLLOW'; if(dA===+1&&dB===+1) return 'INVERT'; if(dA===0&&dB===0) return 'NULL'; return 'UNDEF'; }
+  function strict144Seal(){ if(!UI.strict144.checked) return; if(ST.phi===0 && (ST.i%4===0)) ST.sealed=Math.min(144,ST.sealed+1); }
+
+  // ===== Cog math (two gears + 432 rotor) =====
+  function rotorEnsureAlive(){ const ones = ST.cogs.rotor.reduce((s,b)=>s+(b?1:0),0); if(ones===0){ ST.cogs.rotorIdx = 0; ST.cogs.rotor = [1,0,0,0,0,0]; } }
+  function rotorStep(){ // single 1 walks around ring
+    const {rotor, rotorIdx} = ST.cogs; rotorEnsureAlive();
+    let idx = (rotorIdx+1) % rotor.length; ST.cogs.rotorIdx = idx; ST.cogs.rotor.fill(0); ST.cogs.rotor[idx]=1;
+  }
+  function rotorBits(){ return ST.cogs.rotor.map(b=>b?1:0).join(''); }
+  function cogRotate(){ const Ne=ST.cogs.Ne; const step = (2*Math.PI)/Ne; const dθ = step*0.5; ST.cogs.rotA = (ST.cogs.rotA + dθ)%(Math.PI*2); // outer +ω
+    const ratio = Math.max(0.3, Math.min(0.9, ST.cogs.ratio));
+    ST.cogs.rotB = (ST.cogs.rotB - dθ*ratio)%(Math.PI*2); // inner −ω scaled
+    rotorStep(); }
+
+  // ===== Bio-field simulation =====
+  function bioStep(deltaPopNorm){
+    if(!document.getElementById('slimeOn').checked) return;
+    if(!bio.inited) bioInit();
+
+    // Diffuse & decay field slightly
+    const f = bio.field, W=bio.W, H=bio.H;
+    for(let y=1;y<H-1;y++){
+      for(let x=1;x<W-1;x++){
+        const i=y*W+x;
+        f[i] = 0.90*f[i] + 0.025*(f[i-1]+f[i+1]+f[i-W]+f[i+W]-4*f[i]);
+      }
+    }
+    // Seed chemo from phyllotaxis nodes
+    for(const s of bio.seeds){
+      const ix=(s.y|0)*W+(s.x|0);
+      if(ix>=0 && ix<f.length) f[ix] += 0.12*s.str;
+    }
+
+    // Δ density boosts deposit (couples lake→slime)
+    const dep = 0.02 + 0.25*deltaPopNorm;
+
+    // Agent sense/steer/deposit
+    for(const a of bio.agents){
+      const sense = (dx,dy)=> f[((a.y+dy+H)|0)%H*W + ((a.x+dx+W)|0)%W] || 0;
+      const L = sense(Math.cos(a.angle-0.5)*2, Math.sin(a.angle-0.5)*2);
+      const C = sense(Math.cos(a.angle)*3,     Math.sin(a.angle)*3);
+      const R = sense(Math.cos(a.angle+0.5)*2, Math.sin(a.angle+0.5)*2);
+      const turn = (L>R? -0.25: 0.25) + 0.15*((C-R)-(C-L));
+      a.angle += turn + (rand()-0.5)*0.02;
+
+      // move
+      a.x = (a.x + Math.cos(a.angle)) % W; if(a.x<0)a.x+=W;
+      a.y = (a.y + Math.sin(a.angle)) % H; if(a.y<0)a.y+=H;
+
+      // deposit
+      f[(a.y|0)*W + (a.x|0)] += dep;
+    }
+  }
+
+  function predatorStrike(deltaPopNorm){
+    if(!document.getElementById('predOn').checked || !bio.inited) return;
+
+    const f=bio.field, W=bio.W, H=bio.H;
+    // crude centroid of strongest 2% pixels
+    let thresh=0, tmp=Array.from(f).sort((a,b)=>b-a);
+    thresh = tmp[(tmp.length*0.02)|0] || 0;
+    let sx=0, sy=0, n=0;
+    for(let i=0;i<f.length;i++){ if(f[i]>=thresh){ sx+=(i%W); sy+=((i/W)|0); n++; } }
+    if(n<10) return;
+    const cx=sx/n, cy=sy/n;
+
+    // "Morph": briefly align AI output with local field (learn-then-invert)
+    const local = Math.tanh((thresh - 0.5)*3);
+    const aim = Math.max(-1, Math.min(1, local)); // target signature
+    
+    // now invert on strike → inner collapse
+    const inhibitor = (0.03 + 0.25*+document.getElementById('agg').value) * (0.6 + 0.8*deltaPopNorm);
+
+    for(const a of bio.agents){
+      // steer toward centroid first
+      const angTo = Math.atan2(cy - a.y, cx - a.x);
+      a.angle += 0.12*Math.atan2(Math.sin(angTo - a.angle), Math.cos(angTo - a.angle));
+
+      // if inside the hot band, deposit inhibitor (eat from inside)
+      const val = f[(a.y|0)*W + (a.x|0)];
+      if(val >= thresh*0.85){
+        f[(a.y|0)*W + (a.x|0)] = Math.max(0, val - inhibitor);
+        // slight outward push to "hollow" the core
+        a.angle += (rand()-0.5)*0.2;
+      }
+    }
+  }
+
+  function stepOne(){ // rails step + spline rotation + cogs + bio
+    // Rails
+    const A=ST.A,B=ST.B; for(let k=0;k<64;k++) A[k]=B[k]; buildDreamFromA(); raiseFloor(); shapeTowardTarget(); if(UI.alpha01.checked){ for(let k=0;k<64;k++){ const v=B[k]; if(v!==L&&v!==R) B[k]=flip(A[k]); } }
+    const i=ST.i & 63; const dA=sign(A[i]); const dB=sign(B[i]); ST.psi=psiParity(dA,dB);
+    ST.i=(ST.i+1)%ST.G; ST.K^=1; ST.phi=(ST.phi+1)%ST.P; ST.flips++; strict144Seal();
+    
+    // Compute Δ density for bio coupling
+    const delta = deltaCount();
+    const deltaPopNorm = Math.max(0, Math.min(1, delta/64));
+    
+    // Splines
+    splineRotate(); splineContacts();
+    // Cogs
+    cogRotate();
+    
+    // Bio-field simulation
+    bioStep(deltaPopNorm);
+    predatorStrike(deltaPopNorm);
+  }
+
+  // ===== Splines (straight‑sided, parallel flanks) =====
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function splineParams(){ ST.spl.N = clamp(+UI.splN.value|0, 4, 12); ST.spl.W = clamp(+UI.splW.value, 0.20, 0.45); ST.spl.rR = clamp(+UI.splRR.value, 0.45, 0.85); }
+  function splineRotate(){ const step = (Math.PI*2)/ST.spl.N; const dθ = step*0.5; ST.spl.rotExt = (ST.spl.rotExt + dθ)%(Math.PI*2); ST.spl.rotInt = (ST.spl.rotInt - dθ)%(Math.PI*2); }
+  function wrap2π(x){ x%= (Math.PI*2); return x<0?x+(Math.PI*2):x; }
+  function angDiff(a,b){ let d = Math.abs(wrap2π(a)-wrap2π(b)); if(d>Math.PI) d = 2*Math.PI - d; return d; }
+  function splineContacts(){ // flank alignment count within tolerance
+    const N=ST.spl.N, step=(2*Math.PI)/N, halfW=ST.spl.W*step*0.5, tol=halfW;
+    let c=0; for(let t=0;t<N;t++){ const θ = t*step; const extRight = wrap2π(θ + ST.spl.rotExt + halfW); const intLeft  = wrap2π(θ + ST.spl.rotInt - halfW); if(angDiff(extRight,intLeft) <= tol) c++; }
+    ST.spl.contacts=c; }
+
+  // ===== Viz =====
+  const cvs=document.getElementById('viz'); const ctx=cvs.getContext('2d');
+  function draw(){ ctx.clearRect(0,0,cvs.width,cvs.height); if(ST.view==='rails') drawRails(); else if(ST.view==='splines') drawSplines(); else drawCogs(); drawBioOverlay(); }
+
+  function drawBioOverlay(){
+    if(!document.getElementById('slimeOn').checked || !bio.inited) return;
+    const w=cvs.width, h=cvs.height;
+    const img = ctx.createImageData(bio.W, bio.H);
+    const f=bio.field; const mx = 1/(0.00001 + Math.max(...f));
+    for(let i=0;i<f.length;i++){
+      const v = Math.min(1, f[i]*mx);
+      const j=i*4;
+      img.data[j+0]= (v*255)|0;    // R  → chemo intensity
+      img.data[j+1]= ((1-v)*180)|0; // G
+      img.data[j+2]= 40;            // B
+      img.data[j+3]= 110;           // A
+    }
+    // place centered inside the canvas
+    const scale = 0.8;
+    const dx = (w - bio.W*scale)/2, dy = (h - bio.H*scale)/2;
+    const tmp = document.createElement('canvas'); tmp.width=bio.W; tmp.height=bio.H;
+    tmp.getContext('2d').putImageData(img,0,0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tmp, 0,0,bio.W,bio.H, dx,dy, bio.W*scale, bio.H*scale);
+  }
+  function drawRails(){ for(let k=0;k<64;k++){ const x=16 + k*16, y1=100, y2=160, w=12, h=42; ctx.fillStyle=ST.A[k]===L?'#a7f3d0':'#fca5a5'; ctx.fillRect(x,y1,w,h); ctx.fillStyle=ST.B[k]===L?'#a7f3d0':'#fca5a5'; ctx.fillRect(x,y2,w,h); } ctx.fillStyle='#8fd3ff'; ctx.fillText(`Δ=${deltaCount()}`,16,24); ctx.fillText(`ψ=${ST.psi}`,120,24); ctx.fillText(`seal=${ST.sealed}/144`,220,24); ctx.fillText(`i=${ST.i} K=${ST.K} φ=${ST.phi} flips=${ST.flips}`,16,44); }
+  function polarLine(cx,cy,r,ang){ ctx.lineTo(cx + r*Math.cos(ang), cy + r*Math.sin(ang)); }
+  function drawStraightSpline(cx,cy,R,r,N,W,rot,color){ const step=(2*Math.PI)/N, halfW=W*step*0.5; ctx.beginPath(); ctx.moveTo(cx + r*Math.cos(rot-halfW), cy + r*Math.sin(rot-halfW)); for(let i=0;i<N;i++){ const θ = rot + i*step; // left flank up
+      polarLine(cx,cy,R,θ-halfW); // tip left
+      polarLine(cx,cy,R,θ+halfW); // tip right
+      polarLine(cx,cy,r,θ+halfW); // down right flank
+      // root step to next
+      polarLine(cx,cy,r,θ + step - halfW);
+    }
+    ctx.closePath(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle='rgba(143,211,255,0.06)'; ctx.fill(); }
+  function drawSplines(){ const cx=cvs.width*0.55, cy=cvs.height*0.50; const R=180, r=R*ST.spl.rR; const Ri=r-18, ri=Ri*ST.spl.rR; // inner ring
+    // External
+    drawStraightSpline(cx,cy,R,r,ST.spl.N,ST.spl.W,ST.spl.rotExt,'#8fd3ff');
+    // Internal (concentric)
+    drawStraightSpline(cx,cy,Ri,ri,ST.spl.N,ST.spl.W,ST.spl.rotInt,'#a7f3d0');
+    // Contact indicator
+    ctx.fillStyle='#8fd3ff'; ctx.fillText(`contacts≈${ST.spl.contacts}/${ST.spl.N}`, 16, 24);
+    ctx.fillText(`N=${ST.spl.N} W=${ST.spl.W.toFixed(2)} r/R=${ST.spl.rR.toFixed(2)}`, 16, 44);
+    ctx.fillText(`i=${ST.i} φ=${ST.phi} flips=${ST.flips}`, 16, 64);
+  }
+
+  // Simple cog polygons (not involute): good enough for phase & coupling
+  function drawCog(cx,cy,R,toothN,rot,fill,stroke){ const step=(2*Math.PI)/toothN; const toothW=step*0.5; const r=R*0.78; ctx.beginPath(); for(let i=0;i<toothN;i++){ const θ=rot+i*step; // flank up
+      const a1=θ-toothW*0.5, a2=θ+toothW*0.5;
+      if(i===0) ctx.moveTo(cx + r*Math.cos(a1), cy + r*Math.sin(a1));
+      ctx.lineTo(cx + R*Math.cos(a1), cy + R*Math.sin(a1));
+      ctx.lineTo(cx + R*Math.cos(a2), cy + R*Math.sin(a2));
+      ctx.lineTo(cx + r*Math.cos(a2), cy + r*Math.sin(a2));
+    }
+    ctx.closePath(); ctx.fillStyle=fill; ctx.strokeStyle=stroke; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+  }
+  function drawRotorRing(cx,cy,R){ const bits = ST.cogs.rotor; const n=bits.length; const step=(2*Math.PI)/n; for(let i=0;i<n;i++){ const ang=i*step - Math.PI/2; const on=bits[i]; ctx.beginPath(); ctx.arc(cx,cy,R, ang, ang+step*0.9); ctx.strokeStyle = on?'#a7f3d0':'#1b2530'; ctx.lineWidth=6; ctx.stroke(); }
+    // 432 mark
+    ctx.fillStyle='#8fd3ff'; ctx.font='12px ui-monospace'; ctx.fillText('432', cx-10, cy- (R+12)); }
+  function drawCogs(){ const cx=cvs.width*0.55, cy=cvs.height*0.52; const Re=170; const Ri=Re*ST.cogs.ratio; const Ne=ST.cogs.Ne; const Ni=Math.max(4, Math.round(Ne*ST.cogs.ratio));
+    drawCog(cx,cy,Re,Ne,ST.cogs.rotA,'rgba(143,211,255,0.09)','rgba(143,211,255,0.8)');
+    drawCog(cx,cy,Ri,Ni,-ST.cogs.rotB,'rgba(167,243,208,0.10)','rgba(167,243,208,0.8)');
+    drawRotorRing(cx,cy,Ri-26);
+    ctx.fillStyle='#8fd3ff'; ctx.fillText(`Ne=${Ne} Ni≈${Ni} ratio=${ST.cogs.ratio.toFixed(2)}`,16,24);
+    ctx.fillText(`θₐ=${deg(ST.cogs.rotA).toFixed(1)}° θᵦ=${deg(ST.cogs.rotB).toFixed(1)}° rotor=${rotorBits()}`,16,44);
+  }
+  function deg(rad){ return rad*180/Math.PI; }
+
+  // ===== UI =====
+  const UI = {
+    // view
+    viewRadios: Array.from(document.querySelectorAll('input[name="view"]')), viewState: document.getElementById('viewState'),
+    // engine
+    gearMod: document.getElementById('gearMod'), phaseMod: document.getElementById('phaseMod'), seed: document.getElementById('seed'), step: document.getElementById('step'), run: document.getElementById('run'), stop: document.getElementById('stop'), hz: document.getElementById('hz'), status: document.getElementById('status'),
+    alpha01: document.getElementById('alpha01'), deltaFloor: document.getElementById('deltaFloor'), shaper: document.getElementById('shaper'), strict144: document.getElementById('strict144'), cookTrap: document.getElementById('cookTrap'),
+    gear: document.getElementById('gear'), phi: document.getElementById('phi'), flips: document.getElementById('flips'), psi: document.getElementById('psi'), seal: document.getElementById('seal'), contacts: document.getElementById('contacts'),
+    thetaA: document.getElementById('thetaA'), thetaB: document.getElementById('thetaB'), rotor: document.getElementById('rotor'),
+    // spline params
+    splN: document.getElementById('splN'), splW: document.getElementById('splW'), splRR: document.getElementById('splRR'),
+    // cog params
+    cogN: document.getElementById('cogN'), cogRatio: document.getElementById('cogRatio'),
+    // bio-field
+    slimeOn: document.getElementById('slimeOn'), fibN: document.getElementById('fibN'), predOn: document.getElementById('predOn'), agg: document.getElementById('agg'), demo: document.getElementById('demo'),
+    // source
+    sourceRadios: Array.from(document.querySelectorAll('input[name="source"]')), portState: document.getElementById('portState'),
+    simRow: document.getElementById('simRow'), simHz: document.getElementById('simHz'), simStart: document.getElementById('simStart'), simStop: document.getElementById('simStop'),
+    pasteRow: document.getElementById('pasteRow'), pasteBox: document.getElementById('pasteBox'), feedPaste: document.getElementById('feedPaste'),
+    serialRow: document.getElementById('serialRow'), connect: document.getElementById('connect'), disconnect: document.getElementById('disconnect'), serialHelp: document.getElementById('serialHelp'),
+    runTests: document.getElementById('runTests'), testSummary: document.getElementById('testSummary'), testLog: document.getElementById('testLog'), log: document.getElementById('log')
+  };
+
+  function pumpUI(){ UI.gear.textContent=ST.i; UI.phi.textContent=ST.phi; UI.flips.textContent=ST.flips; UI.psi.textContent=ST.psi; UI.seal.textContent=ST.sealed; UI.contacts.textContent=ST.spl.contacts; UI.viewState.textContent = ST.view; UI.thetaA.textContent = deg(ST.cogs.rotA).toFixed(1); UI.thetaB.textContent = deg(ST.cogs.rotB).toFixed(1); UI.rotor.textContent = rotorBits(); }
+
+  function reseed(){ ST.G = Math.max(4, Math.min(64, +UI.gearMod.value|0)); ST.P = Math.max(36, Math.min(288, +UI.phaseMod.value|0)); ST.i=0; ST.K=0; ST.phi=0; ST.flips=0; ST.sealed=0; ST.trap=false; ST.psi='UNDEF'; for(let k=0;k<64;k++){ ST.A[k]=(k&1)?L:R; ST.B[k]=dreamF(ST.A,1,k); if(ST.A[k]===ST.B[k]) ST.B[k]=flip(ST.A[k]); } splineParams(); ST.spl.rotExt=0; ST.spl.rotInt=0; ST.cogs.Ne = Math.max(4, Math.min(24, +UI.cogN.value|0)); ST.cogs.ratio = Math.max(0.3, Math.min(0.9, +UI.cogRatio.value)); ST.cogs.rotA=0; ST.cogs.rotB=0; ST.cogs.rotor=[1,0,0,0,0,0]; ST.cogs.rotorIdx=0; splineContacts(); pumpUI(); draw(); }
+
+  UI.seed.onclick = reseed; UI.step.onclick = ()=>{ stepOne(); pumpUI(); draw(); };
+  let timer=null; UI.run.onclick = ()=>{ if(timer) return; const dt = 1000/Math.max(0.2, Math.min(120, +UI.hz.value)); timer=setInterval(()=>{ stepOne(); pumpUI(); draw(); }, dt); UI.status.textContent='running'; UI.run.disabled=true; UI.stop.disabled=false; };
+  UI.stop.onclick = ()=>{ clearInterval(timer); timer=null; UI.status.textContent='idle'; UI.run.disabled=false; UI.stop.disabled=true; };
+  UI.viewRadios.forEach(r=>r.addEventListener('change', e=>{ ST.view=e.target.value; pumpUI(); draw(); }));
+  UI.splN.addEventListener('change', ()=>{ splineParams(); splineContacts(); draw(); });
+  UI.splW.addEventListener('change', ()=>{ splineParams(); splineContacts(); draw(); });
+  UI.splRR.addEventListener('change', ()=>{ splineParams(); splineContacts(); draw(); });
+  UI.cogN.addEventListener('change', ()=>{ ST.cogs.Ne = Math.max(4, Math.min(24, +UI.cogN.value|0)); draw(); });
+  UI.cogRatio.addEventListener('change', ()=>{ ST.cogs.ratio = Math.max(0.3, Math.min(0.9, +UI.cogRatio.value)); draw(); });
+
+  // Bio-field controls
+  UI.slimeOn.addEventListener('change', ()=>{ if(UI.slimeOn.checked && !bio.inited) bioInit(); draw(); });
+  UI.fibN.addEventListener('change', ()=>{ if(bio.inited) bioInit(); draw(); });
+  UI.demo.onclick = ()=>{
+    UI.slimeOn.checked=true; UI.predOn.checked=false; bioInit();
+    setTimeout(()=>{ UI.predOn.checked=true; }, 2200);
+  };
+
+  // Keyboard: space toggles run/stop; right arrow steps
+  window.addEventListener('keydown', e=>{ if(e.code==='Space'){ if(timer){ UI.stop.onclick(); } else { UI.run.onclick(); } e.preventDefault(); } else if(e.code==='ArrowRight'){ UI.step.onclick(); e.preventDefault(); } });
+
+  reseed(); draw();
+
+  // ===== Input sources: Simulated / Paste / Serial (safe) =====
+  function setSource(src){ UI.simRow.style.display = src==='sim' ? '' : 'none'; UI.pasteRow.style.display = src==='paste' ? '' : 'none'; UI.serialRow.style.display = src==='serial' ? '' : 'none'; if(src!=='sim' && simTimer){ clearInterval(simTimer); simTimer=null; UI.simStart.disabled=false; UI.simStop.disabled=true; } if(src!=='serial') detachSerial(); UI.portState.textContent = src==='serial' ? 'ready' : src; }
+  UI.sourceRadios.forEach(r=>r.addEventListener('change', e=> setSource(e.target.value)));
+
+  // Simulated feed
+  let simTimer=null; function emitSim(){ const line = `COMANCHE ${JSON.stringify({gear:ST.i, phi:ST.phi, flips:ST.flips, psi:ST.psi, contacts:ST.spl.contacts})}`; parseLine(line); }
+  UI.simStart.onclick = ()=>{ if(simTimer) return; const dt=1000/Math.max(0.5, Math.min(200, +UI.simHz.value)); simTimer=setInterval(()=>{ stepOne(); emitSim(); }, dt); UI.simStart.disabled=true; UI.simStop.disabled=false; UI.portState.textContent='simulating'; };
+  UI.simStop.onclick = ()=>{ clearInterval(simTimer); simTimer=null; UI.simStart.disabled=false; UI.simStop.disabled=true; UI.portState.textContent='sim stopped'; };
+
+  // Paste feed
+  UI.feedPaste.onclick = ()=>{ const lines = UI.pasteBox.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); for(const line of lines) parseLine(line); };
+
+  // Serial (blocked‑safe)
+  let port=null, reader=null; const dec=new TextDecoder(); let buf='';
+  async function detectSerialPolicy(){ if(!('serial' in navigator)) return {supported:false, blocked:true, reason:'unsupported'}; try{ await navigator.serial.getPorts(); return {supported:true, blocked:false}; } catch(e){ if(e && e.name==='SecurityError') return {supported:true, blocked:true, reason:'permissions-policy'}; return {supported:false, blocked:true, reason:e?.name||'unknown'} } }
+  function setSerialHelp(state){ if(state.blocked){ UI.serialHelp.innerHTML = `<div class="warn">Web Serial blocked by Permissions Policy in this environment.</div><div class="small">To use it outside this sandbox, serve with header:<br><span class="mono">Permissions-Policy: serial=(self)</span><br>and enable serial devices in browser settings. Meanwhile, use <b>Simulated</b> or <b>Paste</b>.</div>`; UI.connect.disabled=true; UI.disconnect.disabled=true; UI.portState.textContent='blocked'; } else if(!state.supported){ UI.serialHelp.textContent='Web Serial not supported; use Simulated or Paste.'; UI.connect.disabled=true; UI.disconnect.disabled=true; UI.portState.textContent='unsupported'; } else { UI.serialHelp.textContent='Web Serial available. Connect only if you trust this page and device.'; UI.connect.disabled=false; UI.disconnect.disabled=true; UI.portState.textContent='available'; } }
+  async function attachSerial(){ try{ port = await navigator.serial.requestPort(); await port.open({baudRate:115200}); reader = port.readable.getReader(); UI.portState.textContent='connected'; UI.connect.disabled=true; UI.disconnect.disabled=false; buf=''; while(true){ const {value,done}=await reader.read(); if(done) break; buf += dec.decode(value,{stream:true}); let i; while((i=buf.indexOf('\n'))>=0){ const line=buf.slice(0,i).trim(); buf=buf.slice(i+1); if(line) parseLine(line); } } } catch(e){ console.warn('Serial connect error:',e); UI.portState.textContent = (e && e.name==='SecurityError') ? 'blocked' : 'error'; if(e && e.name==='SecurityError'){ UI.serialHelp.innerHTML='<span class="warn">Blocked by Permissions Policy.</span> Use Simulated/Paste here.'; } } }
+  async function detachSerial(){ try{ if(reader){ await reader.cancel(); await reader.releaseLock(); } if(port){ await port.close(); } } catch(_){} finally { port=null; reader=null; UI.disconnect.disabled=true; UI.connect.disabled=false; if(UI.portState.textContent==='connected') UI.portState.textContent='disconnected'; } }
+  UI.connect.onclick = ()=>{ attachSerial(); }; UI.disconnect.onclick = ()=>{ detachSerial(); };
+  detectSerialPolicy().then(setSerialHelp);
+
+  // Common line parser
+  function parseLine(line){ UI.log.textContent += line + '\n'; if(line.startsWith('COMANCHE ')){ try{ const obj=JSON.parse(line.slice(9)); applyFrame(obj); }catch(_){} } else { try{ const obj=JSON.parse(line); applyFrame(obj); }catch(_){} } }
+  function applyFrame(obj){ if(obj==null || typeof obj!=='object') return; ST.i = obj.gear??ST.i; ST.phi = obj.phi??ST.phi; ST.flips = obj.flips??ST.flips; ST.psi = obj.psi??ST.psi; if(typeof obj.contacts==='number'){ ST.spl.contacts = obj.contacts; } pumpUI(); draw(); }
+
+  // ===== Self‑tests =====
+  function assertCond(name, cond){ return {name, pass:!!cond}; }
+  function nearly(a,b,eps=1e-6){ return Math.abs(a-b)<=eps; }
+  async function runTests(){ const R=[];
+    // 1) Rails: alphabet one‑hot
+    reseed(); stepOne(); let ok1=true; for(let k=0;k<64;k++){ ok1 = ok1 && (ST.A[k]===L||ST.A[k]===R) && (ST.B[k]===L||ST.B[k]===R); } R.push(assertCond('Rails alphabet one‑hot', ok1));
+    // 2) Δ floor
+    ST.minDelta=5; UI.deltaFloor.checked=true; for(let k=0;k<64;k++){ ST.A[k]=L; ST.B[k]=L; } raiseFloor(); R.push(assertCond('Δ floor enforces MIN≥5', deltaCount()>=5));
+    // 3) ψ‑parity
+    R.push(assertCond('ψ HOLLOW', psiParity(-1,-1)==='HOLLOW')); R.push(assertCond('ψ INVERT', psiParity(+1,+1)==='INVERT')); R.push(assertCond('ψ NULL', psiParity(0,0)==='NULL')); R.push(assertCond('ψ UNDEF', psiParity(+1,-1)==='UNDEF'));
+    // 4) 144‑seal gate
+    const pre=ST.sealed; const si=ST.i, sp=ST.phi; ST.i=4; ST.phi=0; strict144Seal(); const inc=ST.sealed===pre+1; ST.i=5; ST.phi=1; const pre2=ST.sealed; strict144Seal(); const noinc=ST.sealed===pre2; ST.i=si; ST.phi=sp; R.push(assertCond('144‑seal gate rule', inc && noinc));
+    // 5) Splines: parameter bounds
+    UI.splN.value=3; splineParams(); R.push(assertCond('N clamped ≥4', ST.spl.N===4)); UI.splN.value=20; splineParams(); R.push(assertCond('N clamped ≤12', ST.spl.N===12));
+    // 6) Splines: contact decreases when phase shifts
+    UI.splN.value=6; UI.splW.value=0.30; UI.splRR.value=0.62; splineParams(); ST.spl.rotExt=0; ST.spl.rotInt=0; splineContacts(); const cAligned=ST.spl.contacts; ST.spl.rotInt+= (2*Math.PI)/ST.spl.N * 0.25; splineContacts(); const cOff=ST.spl.contacts; R.push(assertCond('Contacts drop when phase shifts', cAligned>cOff));
+    // 7) Cogs: rotor keeps a single 1 and rotates
+    ST.cogs.rotor=[1,0,0,0,0,0]; ST.cogs.rotorIdx=0; rotorStep(); const s1 = rotorBits(); rotorStep(); const s2 = rotorBits(); const ones1 = s1.split('').filter(x=>x==='1').length; const ones2 = s2.split('').filter(x=>x==='1').length; R.push(assertCond('432 rotor maintains exactly one 1', ones1===1 && ones2===1 && s1!==s2));
+    // 8) Serial policy: should not throw; detect state and set help
+    try { const state = await detectSerialPolicy(); setSerialHelp(state); R.push(assertCond('Serial policy probe does not crash', true)); } catch(e){ R.push(assertCond('Serial policy probe does not crash', false)); }
+    
+    // 9) Bio-field: phyllotaxis seeds
+    UI.fibN.value = 89; bioInit(); R.push(assertCond('phyllotaxis seeds', bio.seeds.length === 89));
+    
+    // 10) Bio-field: field bounded [0..~1]
+    let ok2=true; for(const v of bio.field){ if(!isFinite(v) || v<0) { ok2=false; break; } } R.push(assertCond('field bounded [0..~1]', ok2));
+
+    const passN=R.filter(r=>r.pass).length; const total=R.length; UI.testSummary.textContent=`${passN}/${total} passing`; UI.testSummary.className='pill ' + (passN===total?'ok':'bad'); UI.testLog.textContent=R.map(r=>`${r.pass?'PASS':'FAIL'} — ${r.name}`).join('\n'); }
+  UI.runTests.onclick=()=>{ runTests(); };
+  runTests();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Δ-Fold Radial Mic Field – Predictive Advection Bowl</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+    canvas {
+      border: 1px solid #333;
+      background: #000;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.8);
+      color: #0f0;
+      text-align: center;
+      cursor: pointer;
+      padding: 16px;
+    }
+    #wrap {
+      position: relative;
+    }
+    #status {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="field" width="600" height="600"></canvas>
+    <div id="overlay">
+      Click to start Δ-fold radial mic field<br>
+      (allow microphone when asked)<br><br>
+      [B] toggle bowl mode (inward universe)<br>
+      [M] clear memory / strata
+    </div>
+  </div>
+  <div id="status">idle</div>
+
+  <script>
+    const canvas   = document.getElementById('field');
+    const ctx      = canvas.getContext('2d');
+    const overlay  = document.getElementById('overlay');
+    const statusEl = document.getElementById('status');
+
+    let W = canvas.width;
+    let H = canvas.height;
+    let CX = W / 2;
+    let CY = H / 2;
+    let R_MAX = Math.min(W, H) * 0.48;
+
+    function resize() {
+      W = canvas.width  = canvas.clientWidth  || 600;
+      H = canvas.height = canvas.clientHeight || 600;
+      CX = W / 2;
+      CY = H / 2;
+      R_MAX = Math.min(W, H) * 0.48;
+    }
+    window.addEventListener('resize', resize);
+
+    let audioCtx = null;
+    let analyser = null;
+    let buffer   = null;
+
+    // Fibonacci pair for Δ-fold (F_n, F_{n-1})
+    const F_n   = 5;
+    const F_nm1 = 3;
+
+    // sedimentary memory of folded states
+    const memoryDepth = 64;            // how many layers
+    const history     = [];            // array of Float32Array
+    let historyAvg    = null;          // running average of Δ-field
+    let bowlMode      = false;         // false = rays out, true = bowl inward
+
+    function setStatus(t) {
+      statusEl.textContent =
+        t +
+        ` · bowl: ${bowlMode ? 'on' : 'off'} · layers: ${history.length} · predictive: on · advection: on`;
+    }
+
+    overlay.addEventListener('click', start);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'b' || e.key === 'B') {
+        bowlMode = !bowlMode;
+        setStatus('toggle mode');
+      } else if (e.key === 'm' || e.key === 'M') {
+        history.length = 0;
+        if (historyAvg) historyAvg.fill(0);
+        setStatus('memory cleared');
+      }
+    });
+
+    async function start() {
+      overlay.style.display = 'none';
+      try {
+        setStatus('requesting microphone…');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        buffer = new Float32Array(analyser.fftSize);
+
+        source.connect(analyser);
+
+        setStatus('Δ-fold radial field running');
+        render();
+      } catch (err) {
+        console.error(err);
+        overlay.style.display = 'flex';
+        overlay.textContent = 'Mic permission failed. Reload and try again.';
+        setStatus('error: ' + err.message);
+      }
+    }
+
+    function advectArray(arr, drift) {
+      const N = arr.length;
+      const out = new Float32Array(N);
+      const shift = drift * N;
+      for (let i = 0; i < N; i++) {
+        let src = (i - shift) % N;
+        if (src < 0) src += N;
+        const a = Math.floor(src);
+        const b = (a + 1) % N;
+        const t = src - a;
+        out[i] = arr[a] * (1 - t) + arr[b] * t;
+      }
+      return out;
+    }
+
+    function render() {
+      if (!analyser) return;
+
+      analyser.getFloatTimeDomainData(buffer);
+
+      const N = buffer.length;
+      const folded = new Float32Array(N);
+
+      // Δ-fold: λ1 + (λ1 − λ2) with Fibonacci offsets
+      for (let i = 0; i < N; i++) {
+        const i1 = i - F_n;
+        const i2 = i - F_nm1;
+        const λ1 = i1 >= 0 ? buffer[i1] : 0;
+        const λ2 = i2 >= 0 ? buffer[i2] : 0;
+        folded[i] = λ1 + (λ1 - λ2);
+      }
+
+      // init / update running average of the Δ-field
+      if (!historyAvg || historyAvg.length !== N) {
+        historyAvg = new Float32Array(N);
+      }
+      const avgAlpha = 1 / memoryDepth;  // learning rate from history
+      for (let i = 0; i < N; i++) {
+        historyAvg[i] += (folded[i] - historyAvg[i]) * avgAlpha;
+      }
+
+      // predicted field: halfway between live Δ and long-term Δ
+      let predicted = new Float32Array(N);
+      const liveWeight = 0.5;
+      const memWeight  = 0.5;
+      for (let i = 0; i < N; i++) {
+        predicted[i] = folded[i] * liveWeight + historyAvg[i] * memWeight;
+      }
+
+      // compute drift from mismatch (global imbalance)
+      let drift = 0;
+      for (let i = 0; i < N; i++) {
+        drift += (predicted[i] - folded[i]);
+      }
+      drift *= 0.00002; // tiny angular drift
+
+      // advect predicted field along angular dimension
+      predicted = advectArray(predicted, drift);
+
+      // store sedimentary layer (predicted universe state)
+      history.push(predicted);
+      if (history.length > memoryDepth) history.shift();
+
+      // total energy for global hue / core pulse (from predicted)
+      let energy = 0;
+      for (let i = 0; i < N; i++) {
+        const v = predicted[i];
+        energy += v * v;
+      }
+      energy = Math.min(1, Math.sqrt(energy / N) * 6); // normalized
+
+      // fade previous frame
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(0, 0, W, H);
+
+      const spokes  = 720;         // angular resolution
+      const invBase = R_MAX * 0.18;
+
+      if (!bowlMode) {
+        // NORMAL MODE: predicted universe + sedimentary haze
+        const hLen = history.length;
+        for (let layer = 0; layer < hLen; layer++) {
+          const layerData = history[layer];
+          const age = layer / Math.max(1, hLen - 1); // 0 old → 1 new
+          const ageFade = 0.08 + 0.25 * age;
+
+          for (let s = 0; s < spokes; s++) {
+            const t = (s + 0.5) / spokes;
+            const angle = t * Math.PI * 2;
+            const idx = Math.floor(t * (layerData.length - 1));
+            const v   = layerData[idx];
+
+            const mag  = Math.tanh(Math.abs(v) * 4.0);
+            const r    = mag * R_MAX * (0.4 + 0.6 * age);
+            const x    = CX + r * Math.cos(angle);
+            const y    = CY + r * Math.sin(angle);
+
+            const hue   = (t * 360 + age * 120 + energy * 90) % 360;
+            const light = 20 + mag * 40 + age * 20;
+
+            ctx.fillStyle = `hsla(${hue}, 70%, ${light}%, ${ageFade})`;
+            ctx.fillRect(x, y, 1.2, 1.2);
+          }
+        }
+
+        // draw current predicted frame as live rays
+        for (let s = 0; s < spokes; s++) {
+          const t = (s + 0.5) / spokes;
+          const angle = t * Math.PI * 2;
+          const idx = Math.floor(t * (N - 1));
+          const v   = predicted[idx];
+
+          const mag  = Math.tanh(Math.abs(v) * 6.0);
+          const sign = v >= 0 ? 1 : -1;
+          const rOut = mag * R_MAX;
+
+          const xOut = CX + rOut * Math.cos(angle);
+          const yOut = CY + rOut * Math.sin(angle);
+
+          const hueBase = (t * 360) % 360;
+          const hue   = (hueBase + sign * 40 + energy * 120) % 360;
+          const light = 40 + mag * 45;
+          const sat   = 70 + sign * 20;
+
+          ctx.strokeStyle = `hsl(${hue}, ${Math.max(0, Math.min(100, sat))}%, ${light}%)`;
+          ctx.beginPath();
+          ctx.moveTo(CX, CY);
+          ctx.lineTo(xOut, yOut);
+          ctx.stroke();
+        }
+      } else {
+        // BOWL MODE: predicted universes as inward sedimentary rings
+        const hLen = history.length;
+        for (let layer = 0; layer < hLen; layer++) {
+          const layerData = history[layer];
+          const age = layer / Math.max(1, hLen - 1); // 0 old → 1 new
+          const ageRev = 1 - age;
+          const radiusBase = invBase + ageRev * (R_MAX * 0.7);
+          const alphaBase  = 0.05 + 0.3 * ageRev;
+
+          for (let s = 0; s < spokes; s++) {
+            const t = (s + 0.5) / spokes;
+            const angle = t * Math.PI * 2;
+            const idx = Math.floor(t * (layerData.length - 1));
+            const v   = layerData[idx];
+
+            const mag  = Math.tanh(Math.abs(v) * 5.0);
+            const sign = v >= 0 ? 1 : -1;
+
+            const rShift = (mag - 0.5) * (R_MAX * 0.22);
+            const r      = radiusBase + rShift * sign;
+
+            const x = CX + r * Math.cos(angle);
+            const y = CY + r * Math.sin(angle);
+
+            const hue   = (t * 360 + ageRev * 180 + energy * 140) % 360;
+            const light = 25 + mag * 40;
+            const alpha = alphaBase * (0.4 + mag * 0.6);
+
+            ctx.fillStyle = `hsla(${hue}, 80%, ${light}%, ${alpha})`;
+            ctx.fillRect(x, y, 1.1, 1.1);
+          }
+        }
+      }
+
+      // central diode focus
+      ctx.beginPath();
+      ctx.arc(CX, CY, 4 + energy * 10, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${(energy * 300 + 180) % 360}, 100%, ${30 + energy * 40}%)`;
+      ctx.fill();
+
+      setStatus('Δ-fold radial field running');
+      requestAnimationFrame(render);
+    }
+  </script>
+</body>
+</html>
