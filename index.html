@@ -186,6 +186,7 @@
         let audioContext = null;
         let analyser = null;
         let microphone = null;
+        let microphoneStream = null;
         let audioBuffer = new Uint8Array(MEMORY_DEPTH);
         let memoryLayers = Array(MEMORY_DEPTH).fill().map(() => new Float32Array(RADIAL_SPOKES));
         let currentLayer = 0;
@@ -207,13 +208,17 @@
         let frameCount = 0;
         let fps = 0;
         
-        // Fibonacci sequence generator
+        // Fibonacci sequence generator with memoization
+        const fibCache = new Map();
         function fibonacci(n) {
             if (n <= 1) return n;
+            if (fibCache.has(n)) return fibCache.get(n);
+            
             let a = 0, b = 1;
             for (let i = 2; i <= n; i++) {
                 [a, b] = [b, a + b];
             }
+            fibCache.set(n, b);
             return b;
         }
         
@@ -232,13 +237,16 @@
         // Audio setup
         async function setupMicrophone() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Clean up any existing audio resources first
+                await cleanupAudio();
+                
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 2048;
                 analyser.smoothingTimeConstant = 0.8;
                 
-                microphone = audioContext.createMediaStreamSource(stream);
+                microphone = audioContext.createMediaStreamSource(microphoneStream);
                 microphone.connect(analyser);
                 
                 audioBuffer = new Uint8Array(analyser.frequencyBinCount);
@@ -426,6 +434,11 @@
                 microphone = null;
             }
             
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+            
             if (audioContext) {
                 try {
                     await audioContext.close();
@@ -437,14 +450,14 @@
         }
         
         // Stop engine
-        function stopEngine() {
+        async function stopEngine() {
             isRunning = false;
             if (animationId) {
                 cancelAnimationFrame(animationId);
                 animationId = null;
             }
             
-            cleanupAudio();
+            await cleanupAudio();
             
             isMicrophoneMode = false;
             isSyntheticMode = false;
