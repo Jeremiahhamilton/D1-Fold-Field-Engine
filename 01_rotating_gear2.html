@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delta₁ Hydraulic Trigger</title>
+  <style>
+    body { background: #0e0f11; color: #e6e8ea; font-family: monospace; padding: 20px; }
+    h1 { font-size: 20px; }
+    .panel { background: #14161a; padding: 16px; border: 1px solid #2a2d35; border-radius: 10px; margin-top: 20px; }
+    .output { margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
+    button { background: #2c313c; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; }
+    input[type="text"] { width: 60%; padding: 10px; border: none; border-radius: 6px; background: #1c1e22; color: #e6e8ea; }
+  </style>
+</head>
+<body>
+  <h1>Δ₁ Fold System — Embossed Trigger Unfold</h1>
+
+  <div class="panel">
+    <p>Enter a trigger value. The deeper the value's tension, the more complex the resulting unfold.</p>
+    <input id="triggerInput" type="text" placeholder="Enter value (e.g. 314, or word)">
+    <button onclick="pushDelta()">Push Into Δ₁</button>
+    <div class="output" id="output"></div>
+  </div>
+
+  <script>
+    const KAPPA = 432;
+    const USE_UNIT_TORQUE = true;
+    const SHOW_DIMENSIONLESS = true;
+
+    function toSequence(input) {
+      let h = 0x811c9dc5 >>> 0;
+      const seq = [];
+      for (const ch of input) {
+        let cp = ch.codePointAt(0);
+        for (let k = 0; k < 4; k++) {
+          h ^= (cp >>> (8*k)) & 0xff;
+          h = Math.imul(h, 0x01000193) >>> 0;
+        }
+        const r = (h ^ (h>>>13) ^ (h>>>27)) % 3;
+        seq.push(r === 0 ? -1 : r === 1 ? 0 : 1);
+      }
+      return seq;
+    }
+
+    function enforceTriad(seq) {
+      if (seq.length >= 1) seq[0] = 1;
+      if (seq.length >= 2) seq[1] = 0;
+      if (seq.length >= 3) seq[2] = 1;
+      return seq;
+    }
+
+    function edgeCompress(seq) {
+      if (!seq.length) return seq;
+      const out = [seq[0]];
+      for (let i = 1; i < seq.length; i++) if (seq[i] !== seq[i - 1]) out.push(seq[i]);
+      return out;
+    }
+
+    function triadClosed(seq) {
+      const acts = seq.filter(v => v !== undefined).slice(0, 3);
+      return acts.length === 3 && acts[0] === 1 && acts[1] === 0 && acts[2] === 1;
+    }
+
+    function invariant_struct(seq, kappa = KAPPA) {
+      const R = seq[0] === 1 ? 1 : 0;
+      const G = seq[1] === 0 ? 1 : 0;
+      const B = seq[2] === 1 ? 1 : 0;
+      return (-R*R - G*G + B*B) * (kappa * kappa);
+    }
+
+    function invariant_energy(seq, kappa = KAPPA) {
+      const R = seq[0] === 1 ? 1 : 0;
+      const B = seq[2] === 1 ? 1 : 0;
+      return (-R*R + B*B) * (kappa * kappa);
+    }
+
+    function deltaSignature(tauSigned){
+      let h = 0xcbf29ce484222325n; const p = 0x100000001b3n;
+      for (const v of tauSigned){
+        const x = BigInt(v|0) & 0xffffffffn;
+        h ^= x; h = (h * p) & 0xffffffffffffffffn;
+      }
+      return '0x' + h.toString(16).padStart(16,'0');
+    }
+
+    function bar(v, max) {
+      const h = Math.max(1, Math.round((v / Math.max(1, max)) * 8));
+      return "▁▂▃▄▅▆▇█"[h - 1];
+    }
+
+    function tensionFold(sequence, phi0 = 0, kappa = KAPPA) {
+      const embossed = [];
+      const torque = [];
+      const tau_signed = [];
+      let phi = phi0, hard = 0;
+      for (const psi of sequence) {
+        const dRaw = Math.abs(psi - phi);
+        if (dRaw === 2) hard++;
+        const d = USE_UNIT_TORQUE ? Math.min(1, dRaw) : dRaw;
+        const tau = d * kappa;
+        const s = (psi - phi) * kappa;
+        torque.push(tau);
+        tau_signed.push(s);
+        embossed.push(psi);
+        phi = psi;
+      }
+      const bins = { '-864':0, '-432':0, '432':0, '864':0 };
+      for (const v of tau_signed) if (v) bins[String(v)]++;
+      return { embossed, torque, hard, tau_signed, bins };
+    }
+
+    function formatResult(seq, res) {
+      const sum = res.torque.reduce((a, b) => a + b, 0);
+      const nz = res.torque.filter(x => x > 0).length;
+      const max = Math.max(1, ...res.torque);
+      const pixels = seq.map(v => v === 1 ? "█" : v === 0 ? " " : "▁").join("");
+      const bars = res.torque.map(t => bar(t, max)).join("");
+      const triad = triadClosed(seq);
+      const invS = invariant_struct(seq);
+      const invE = invariant_energy(seq);
+      const sig = deltaSignature(res.tau_signed);
+      const lines = [
+        "Input embossed into Δ₁ (tension fold)",
+        "",
+        `ψ (sequence): ${seq.join(",")}`,
+        `τ (torque)  : ${res.torque.join(",")}`,
+        `pixels      : ${pixels}`,
+        `bars        : ${bars}`,
+        "",
+        `nonzero flips: ${nz} / ${res.torque.length}`,
+        `total τ      : ${sum}`,
+        `max τ        : ${max}`,
+        `hard flips    : ${res.hard}`,
+        `chirality     : ${JSON.stringify(res.bins)}`,
+        `triad_closed  : ${triad ? 'yes' : 'no'}`,
+        `invariant (struct) κ² : ${invS}`,
+        `invariant (energy) κ² : ${invE}`,
+        `Δ-signature : ${sig}`
+      ];
+      if (SHOW_DIMENSIONLESS) {
+        const unitEvents = res.torque.filter(t => t > 0).length;
+        lines.push(`events (κ⁰): ${unitEvents}  | total τ (κ¹): ${sum}`);
+
+        const χ_pos_soft = res.bins['432'] || 0;
+        const χ_pos_hard = res.bins['864'] || 0;
+        const χ_neg_soft = res.bins['-432'] || 0;
+        const χ_neg_hard = res.bins['-864'] || 0;
+
+        lines.push(`event grammar: E := ${unitEvents} events = ${res.hard} hard + ${unitEvents - res.hard} soft | χ: + (${χ_pos_soft},${χ_pos_hard}) / − (${χ_neg_soft},${χ_neg_hard})`);
+      }
+      return lines.join("\n");
+    }
+
+    function pushDelta() {
+      const input = document.getElementById("triggerInput").value.trim();
+      if (!input) return;
+      const rawSeq = toSequence(input);
+      const edgeSeq = edgeCompress(rawSeq);
+      const seq = enforceTriad(edgeSeq);
+      const res = tensionFold(seq);
+      document.getElementById("output").textContent = formatResult(seq, res);
+    }
+  </script>
+</body>
+</html>
