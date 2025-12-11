@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Δ₁ Tesseract Mic Field</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; background: #000; overflow: hidden;
+      font-family: sans-serif; color: #0f0;
+    }
+    canvas { display: block; background: #000; }
+    #overlay {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85); color: #0f0;
+      text-align: center; cursor: pointer; padding: 2rem;
+      font-size: 1.2rem;
+    }
+    #status {
+      position: fixed; bottom: 5px; left: 10px; font-size: 12px; opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field"></canvas>
+  <div id="overlay">Click to enter Δ-fold tesseract mode (mic required)</div>
+  <div id="status">idle</div>
+
+  <script>
+    const canvas = document.getElementById('field');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const statusEl = document.getElementById('status');
+
+    let w, h, CX, CY, R_MAX;
+    function resize() {
+      w = canvas.width  = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      CX = w / 2;
+      CY = h / 2;
+      R_MAX = Math.min(w, h) * 0.48;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const memoryDepth = 64;
+    const memory = [];
+    const bowlMode = true;
+
+    let audioCtx, analyser, buffer;
+    const F_n = 5, F_nm1 = 3;
+
+    overlay.onclick = async () => {
+      overlay.style.display = 'none';
+      try {
+        statusEl.textContent = 'Requesting microphone…';
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        buffer = new Float32Array(analyser.fftSize);
+        source.connect(analyser);
+        statusEl.textContent =
+          `Δ-fold radial field running — bowl: ${bowlMode ? 'on' : 'off'}, layers: ${memoryDepth}`;
+        render();
+      } catch (err) {
+        console.error(err);
+        overlay.style.display = 'flex';
+        overlay.textContent = 'Mic permission denied. Reload and retry.';
+        statusEl.textContent = 'error: ' + err.message;
+      }
+    };
+
+    function render() {
+      if (!analyser) return;
+      analyser.getFloatTimeDomainData(buffer);
+
+      const N = buffer.length;
+      const folded = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const i1 = i - F_n;
+        const i2 = i - F_nm1;
+        const λ1 = i1 >= 0 ? buffer[i1] : 0;
+        const λ2 = i2 >= 0 ? buffer[i2] : 0;
+        folded[i] = λ1 + (λ1 - λ2);
+      }
+
+      memory.push(folded.slice());
+      if (memory.length > memoryDepth) memory.shift();
+
+      ctx.clearRect(0, 0, w, h);
+
+      const spokes = 720;
+      const minR = R_MAX * 0.08; // avoid hard spike at center
+
+      for (let layer = 0; layer < memory.length; layer++) {
+        const foldedLayer = memory[layer];
+        const alpha = (layer + 1) / memory.length;
+        const scale = (layer + 1) / memory.length;
+        const layerFold = foldedLayer;
+
+        // tiny angular jitter per layer to break grid seams
+        const layerJitter = (layer + 1) / memory.length * (Math.PI / spokes);
+
+        for (let s = 0; s < spokes; s++) {
+          const t = (s + 0.5) / spokes;
+          const angle = t * 2 * Math.PI + layerJitter;
+
+          const idx = Math.floor(t * (layerFold.length - 1));
+          const v = layerFold[idx];
+          const mag = Math.tanh(Math.abs(v) * 6.0);
+          const sign = v >= 0 ? 1 : -1;
+
+          const rLen = mag * R_MAX * scale;
+
+          let baseR;
+          if (bowlMode) {
+            baseR = R_MAX - rLen * 0.9;
+          } else {
+            baseR = minR + rLen * 0.9;
+          }
+
+          const hue = (t * 360) % 360;
+          const light = 40 + mag * 50;
+          const sat = 60 + sign * 30;
+
+          ctx.strokeStyle = `hsla(${hue}, ${Math.min(100, sat)}%, ${light}%, ${alpha * 0.7})`;
+          ctx.beginPath();
+          ctx.moveTo(CX, CY);
+          ctx.lineTo(
+            CX + baseR * Math.cos(angle),
+            CY + baseR * Math.sin(angle)
+          );
+          ctx.stroke();
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+  </script>
+</body>
+</html>
