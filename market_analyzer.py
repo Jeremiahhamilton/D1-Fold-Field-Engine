@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-MARKET ANALYZER - Data-Focused Multi-Market Analysis
+MARKET ANALYZER - Data-Focused Multi-Market Analyzer
 
-Drop multiple CSVs, get clean data analysis:
-- Individual market states
-- Cross-market correlations
-- Phase alignment scores
-- Flip projections
-- Support/Resistance levels
-- Divergence detection
+A non-graphical, numeric report generator for multi-market analysis.
+Load CSV files to analyze market data with the following features:
 
-Less graphics, more numbers. Built for brokers.
+- Per-market analysis: price statistics, regime states, flip timing
+- Cross-market analysis: correlations, phase alignment, divergence detection
+- Futures projections: echo-based price projections from historical patterns
+- Support/Resistance levels: key price levels derived from magnitude analysis
+- Comprehensive numeric reports with minimal graphics
+
+Built for data-driven decision making and quantitative analysis.
 """
 
 import tkinter as tk
@@ -102,123 +103,6 @@ def project_futures(prices, regime, delta, avg_interval, periods=10):
         "projection_periods": len(projected_prices) - 1,
         "end_regime": "BULLISH" if projected_regimes[-1] > 0 else "BEARISH" if projected_regimes[-1] < 0 else "NEUTRAL",
     }
-
-
-def analyze_market(prices):
-    """Full market analysis - returns comprehensive data."""
-    x = np.asarray(prices, dtype=float)
-    n = len(x)
-    
-    if n < 3:
-        raise ValueError("Need at least 3 data points")
-    
-    # Basic stats
-    current_price = x[-1]
-    high = np.max(x)
-    low = np.min(x)
-    mean = np.mean(x)
-    std = np.std(x)
-    
-    # Returns
-    returns = np.diff(x) / x[:-1] * 100
-    total_return = (x[-1] - x[0]) / x[0] * 100
-    avg_daily_return = np.mean(returns)
-    volatility = np.std(returns)
-    
-    # Delta fold geometry
-    log_x = np.log(x + 1e-9)
-    log_centered = log_x - np.mean(log_x)
-    delta = np.diff(log_centered)
-    m = len(delta)
-    
-    echo = -delta[::-1]
-    mag = np.hypot(delta, echo)
-    phase = np.arctan2(echo, delta)
-    mag_norm = mag / (np.max(mag) + 1e-9)
-    regime = np.sign(delta * echo)
-    
-    # Flip analysis
-    flips = np.where(np.diff(regime) != 0)[0] + 1
-    current_regime = regime[-1] if m > 0 else 0
-    
-    if len(flips) >= 2:
-        intervals = np.diff(flips)
-        avg_interval = np.mean(intervals)
-        std_interval = np.std(intervals)
-        last_flip = flips[-1]
-        since_last = m - 1 - last_flip
-        to_next = max(0, avg_interval - since_last)
-        confidence = 1.0 / (1.0 + std_interval / (avg_interval + 1e-9))
-    else:
-        avg_interval = m
-        std_interval = 0
-        to_next = m
-        confidence = 0.5
-    
-    # Support/Resistance
-    support = []
-    resistance = []
-    for i in range(10, m - 10):
-        if mag_norm[i] > max(mag_norm[i-10:i]) and mag_norm[i] > max(mag_norm[i+1:i+11]):
-            resistance.append(x[i+1])
-        if mag_norm[i] < min(mag_norm[i-10:i]) and mag_norm[i] < min(mag_norm[i+1:i+11]):
-            support.append(x[i+1])
-    
-    # Trend strength (magnitude of recent moves)
-    recent_mag = np.mean(mag_norm[-20:]) if len(mag_norm) >= 20 else np.mean(mag_norm)
-    trend_strength = "STRONG" if recent_mag > 0.5 else "MODERATE" if recent_mag > 0.25 else "WEAK"
-    
-    # Phase momentum
-    recent_phase = phase[-10:] if len(phase) >= 10 else phase
-    phase_momentum = np.mean(np.diff(recent_phase)) if len(recent_phase) > 1 else 0
-    
-    return {
-        # Basic
-        "data_points": n,
-        "current_price": current_price,
-        "high": high,
-        "low": low,
-        "mean": mean,
-        "std": std,
-        
-        # Returns
-        "total_return_pct": total_return,
-        "avg_daily_return_pct": avg_daily_return,
-        "volatility_pct": volatility,
-        
-        # Regime
-        "current_regime": current_regime,
-        "current_trend": "BULLISH" if current_regime > 0 else "BEARISH" if current_regime < 0 else "NEUTRAL",
-        "trend_strength": trend_strength,
-        "confidence": confidence,
-        
-        # Flips
-        "total_flips": len(flips),
-        "avg_flip_interval": avg_interval,
-        "std_flip_interval": std_interval,
-        "distance_to_next_flip": to_next,
-        "next_regime": "BEARISH" if current_regime > 0 else "BULLISH" if current_regime < 0 else "UNKNOWN",
-        
-        # Levels
-        "support_levels": sorted(set(support))[-5:] if support else [],
-        "resistance_levels": sorted(set(resistance))[:5] if resistance else [],
-        
-        # Phase
-        "phase_momentum": phase_momentum,
-        "recent_intensity": recent_mag,
-        
-        # Raw data for correlation
-        "regime": regime,
-        "phase": phase,
-        "mag_norm": mag_norm,
-        "delta": delta,
-    }
-    
-    # Add futures projection
-    futures = project_futures(x, regime, delta, avg_interval, periods=10)
-    result["futures"] = futures
-    
-    return result
 
 
 def analyze_market(prices):
