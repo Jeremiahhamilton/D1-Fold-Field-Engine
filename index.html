@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Δ₁ Fold-Field Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #canvas {
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            max-width: 95vw;
+            max-height: 85vh;
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        .controls h2 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .control-group {
+            margin: 10px 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        button {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #0f0;
+            color: #000;
+        }
+
+        button.active {
+            background: #0f0;
+            color: #000;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #0f0;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 5px;
+            font-size: 11px;
+            text-align: center;
+            border-top: 1px solid #0f0;
+            padding-top: 10px;
+        }
+
+        .info {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            font-size: 11px;
+            max-width: 250px;
+        }
+
+        .stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="800"></canvas>
+
+    <div class="controls">
+        <h2>Δ₁ FOLD-FIELD ENGINE</h2>
+        
+        <div class="control-group">
+            <button id="startBtn">START MICROPHONE</button>
+            <button id="syntheticBtn">SYNTHETIC MODE</button>
+        </div>
+
+        <div class="control-group">
+            <button id="bowlBtn">BOWL INVERSION: OFF</button>
+        </div>
+
+        <div class="control-group">
+            <label>Fold Intensity: <span id="foldValue">1.0</span></label>
+            <input type="range" id="foldIntensity" min="0.1" max="5" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label>Rotation Speed: <span id="rotSpeedValue">1.0</span></label>
+            <input type="range" id="rotSpeed" min="0" max="5" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label>Color Cycle: <span id="colorSpeedValue">0.5</span></label>
+            <input type="range" id="colorSpeed" min="0" max="2" step="0.1" value="0.5">
+        </div>
+
+        <div class="status" id="status">
+            STATUS: IDLE
+        </div>
+    </div>
+
+    <div class="stats">
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Mode: <span id="mode">-</span></div>
+        <div>Layers: 64</div>
+        <div>Spokes: 720</div>
+    </div>
+
+    <div class="info">
+        <strong>Controls:</strong><br>
+        • Microphone: Real-time audio<br>
+        • Synthetic: Fallback mode<br>
+        • Bowl: Invert projection<br>
+        • Fold: Fibonacci folding intensity<br>
+        • Rotation: Angular velocity<br>
+        • Color: Hue cycle speed
+    </div>
+
+    <script>
+        // ============================
+        // D1 FOLD-FIELD ENGINE
+        // ============================
+        
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Constants
+        const MEMORY_DEPTH = 64;
+        const RADIAL_SPOKES = 720;
+        const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio
+        
+        // State
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+        let microphoneStream = null;
+        let audioBuffer = new Uint8Array(MEMORY_DEPTH);
+        let memoryLayers = Array(MEMORY_DEPTH).fill().map(() => new Float32Array(RADIAL_SPOKES));
+        let currentLayer = 0;
+        let isRunning = false;
+        let isMicrophoneMode = false;
+        let isSyntheticMode = false;
+        let isBowlMode = false;
+        let animationId = null;
+        
+        // Parameters
+        let foldIntensity = 1.0;
+        let rotationSpeed = 1.0;
+        let colorSpeed = 0.5;
+        let time = 0;
+        let rotation = 0;
+        
+        // FPS tracking
+        let lastFrameTime = Date.now();
+        let frameCount = 0;
+        let fps = 0;
+        
+        // Fibonacci sequence generator with memoization
+        const fibCache = new Map();
+        function fibonacci(n) {
+            if (n <= 1) return n;
+            if (fibCache.has(n)) return fibCache.get(n);
+            
+            let a = 0, b = 1;
+            for (let i = 2; i <= n; i++) {
+                [a, b] = [b, a + b];
+            }
+            fibCache.set(n, b);
+            return b;
+        }
+        
+        // Fibonacci-based folding function
+        function fibonacciFold(value, depth, intensity) {
+            let result = value;
+            for (let i = 1; i <= depth; i++) {
+                const fib = fibonacci(i);
+                const phase = (fib % 360) * Math.PI / 180;
+                result = result * Math.cos(phase * intensity) + 
+                         Math.sin(result * fib * 0.01 * intensity);
+            }
+            return result;
+        }
+        
+        // Audio setup
+        async function setupMicrophone() {
+            try {
+                // Clean up any existing audio resources first
+                await cleanupAudio();
+                
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                analyser.smoothingTimeConstant = 0.8;
+                
+                microphone = audioContext.createMediaStreamSource(microphoneStream);
+                microphone.connect(analyser);
+                
+                audioBuffer = new Uint8Array(analyser.frequencyBinCount);
+                
+                isMicrophoneMode = true;
+                isSyntheticMode = false;
+                updateStatus('MICROPHONE ACTIVE');
+                updateMode('MICROPHONE');
+                
+                if (!isRunning) {
+                    startEngine();
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Microphone access denied:', error);
+                updateStatus('MICROPHONE DENIED - USE SYNTHETIC');
+                return false;
+            }
+        }
+        
+        // Synthetic audio generator
+        function generateSyntheticAudio() {
+            const data = new Float32Array(RADIAL_SPOKES);
+            for (let i = 0; i < RADIAL_SPOKES; i++) {
+                const angle = (i / RADIAL_SPOKES) * Math.PI * 2;
+                
+                // Multiple wave components
+                const wave1 = Math.sin(angle * 3 + time * 0.02);
+                const wave2 = Math.sin(angle * 7 + time * 0.03);
+                const wave3 = Math.sin(angle * 13 + time * 0.01);
+                const wave4 = Math.cos(angle * PHI * 5 + time * 0.025);
+                
+                // Fibonacci modulation
+                const fibMod = Math.sin(angle * fibonacci(5) + time * 0.015);
+                
+                // Combine waves
+                data[i] = (wave1 * 0.3 + wave2 * 0.2 + wave3 * 0.2 + wave4 * 0.2 + fibMod * 0.1);
+            }
+            return data;
+        }
+        
+        // Get audio data
+        function getAudioData() {
+            if (isMicrophoneMode && analyser) {
+                analyser.getByteFrequencyData(audioBuffer);
+                const data = new Float32Array(RADIAL_SPOKES);
+                
+                // Map frequency data to radial spokes
+                for (let i = 0; i < RADIAL_SPOKES; i++) {
+                    const bufferIndex = Math.floor((i / RADIAL_SPOKES) * audioBuffer.length);
+                    data[i] = audioBuffer[bufferIndex] / 255.0;
+                }
+                return data;
+            } else if (isSyntheticMode) {
+                return generateSyntheticAudio();
+            }
+            return new Float32Array(RADIAL_SPOKES);
+        }
+        
+        // Update memory layers
+        function updateMemory(data) {
+            memoryLayers[currentLayer] = data;
+            currentLayer = (currentLayer + 1) % MEMORY_DEPTH;
+        }
+        
+        // Render the fold-field
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(centerX, centerY) * 0.9;
+            
+            // Render each memory layer
+            for (let layer = 0; layer < MEMORY_DEPTH; layer++) {
+                const layerIndex = (currentLayer + layer) % MEMORY_DEPTH;
+                const layerData = memoryLayers[layerIndex];
+                const layerAlpha = layer / MEMORY_DEPTH;
+                const layerDepth = 1 - layerAlpha;
+                
+                // Draw radial spokes
+                for (let i = 0; i < RADIAL_SPOKES; i++) {
+                    const angle = (i / RADIAL_SPOKES) * Math.PI * 2 + rotation;
+                    const nextAngle = ((i + 1) / RADIAL_SPOKES) * Math.PI * 2 + rotation;
+                    
+                    // Get values and apply Fibonacci folding
+                    let value = layerData[i];
+                    value = fibonacciFold(value, 8, foldIntensity);
+                    
+                    // Apply bowl inversion
+                    let radius;
+                    if (isBowlMode) {
+                        // Invert: inner becomes outer
+                        radius = maxRadius * (1 - Math.abs(value) * layerDepth);
+                    } else {
+                        // Normal: outer projection
+                        radius = maxRadius * Math.abs(value) * layerDepth;
+                    }
+                    
+                    // Tesseract projection (4D to 2D)
+                    const w = layer / MEMORY_DEPTH; // 4th dimension
+                    const projectionScale = 1 / (1 + w * 0.5);
+                    radius *= projectionScale;
+                    
+                    // Calculate positions
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    const x2 = centerX + Math.cos(nextAngle) * radius;
+                    const y2 = centerY + Math.sin(nextAngle) * radius;
+                    
+                    // Color based on angle, layer, and time
+                    const hue = (angle * 180 / Math.PI + layer * 5.625 + time * colorSpeed) % 360;
+                    const saturation = 70 + Math.abs(value) * 30;
+                    const lightness = 30 + Math.abs(value) * 40;
+                    const alpha = layerAlpha * 0.3 + Math.abs(value) * 0.4;
+                    
+                    // Draw spoke segment
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.lineTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.closePath();
+                    
+                    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+                    ctx.fill();
+                    
+                    // Add glow for high-intensity spokes
+                    if (Math.abs(value) > 0.7) {
+                        ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness + 20}%, ${alpha * 0.5})`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            // Draw center point
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f0';
+            ctx.fill();
+        }
+        
+        // Animation loop
+        function animate() {
+            if (!isRunning) return;
+            
+            // Get and process audio data
+            const audioData = getAudioData();
+            updateMemory(audioData);
+            
+            // Update time and rotation
+            time += 1;
+            rotation += rotationSpeed * 0.01;
+            
+            // Render
+            render();
+            
+            // FPS calculation
+            frameCount++;
+            const currentTime = Date.now();
+            if (currentTime - lastFrameTime >= 1000) {
+                fps = frameCount;
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                lastFrameTime = currentTime;
+            }
+            
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Start engine
+        function startEngine() {
+            if (isRunning) return;
+            isRunning = true;
+            animate();
+        }
+        
+        // Cleanup audio resources
+        async function cleanupAudio() {
+            if (microphone) {
+                microphone.disconnect();
+                microphone = null;
+            }
+            
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+            
+            if (audioContext) {
+                try {
+                    await audioContext.close();
+                } catch (error) {
+                    console.error('Error closing audio context:', error);
+                }
+                audioContext = null;
+            }
+        }
+        
+        // Stop engine
+        async function stopEngine() {
+            isRunning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            await cleanupAudio();
+            
+            isMicrophoneMode = false;
+            isSyntheticMode = false;
+        }
+        
+        // Update status display
+        function updateStatus(message) {
+            document.getElementById('status').textContent = `STATUS: ${message}`;
+        }
+        
+        // Update mode display
+        function updateMode(mode) {
+            document.getElementById('mode').textContent = mode;
+        }
+        
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            const success = await setupMicrophone();
+            if (!success) {
+                // Auto-switch to synthetic mode if microphone fails
+                document.getElementById('syntheticBtn').click();
+            }
+        });
+        
+        document.getElementById('syntheticBtn').addEventListener('click', async () => {
+            // Stop any existing audio
+            await cleanupAudio();
+            
+            isMicrophoneMode = false;
+            isSyntheticMode = true;
+            updateStatus('SYNTHETIC MODE ACTIVE');
+            updateMode('SYNTHETIC');
+            
+            if (!isRunning) {
+                startEngine();
+            }
+        });
+        
+        document.getElementById('bowlBtn').addEventListener('click', (e) => {
+            isBowlMode = !isBowlMode;
+            e.target.textContent = `BOWL INVERSION: ${isBowlMode ? 'ON' : 'OFF'}`;
+            e.target.classList.toggle('active');
+        });
+        
+        document.getElementById('foldIntensity').addEventListener('input', (e) => {
+            foldIntensity = parseFloat(e.target.value);
+            document.getElementById('foldValue').textContent = foldIntensity.toFixed(1);
+        });
+        
+        document.getElementById('rotSpeed').addEventListener('input', (e) => {
+            rotationSpeed = parseFloat(e.target.value);
+            document.getElementById('rotSpeedValue').textContent = rotationSpeed.toFixed(1);
+        });
+        
+        document.getElementById('colorSpeed').addEventListener('input', (e) => {
+            colorSpeed = parseFloat(e.target.value);
+            document.getElementById('colorSpeedValue').textContent = colorSpeed.toFixed(1);
+        });
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopEngine();
+        });
+        
+        // Initialize with synthetic mode
+        updateStatus('READY - SELECT MODE');
+        updateMode('IDLE');
+        
+        console.log('Δ₁ Fold-Field Engine Initialized');
+        console.log(`Memory Layers: ${MEMORY_DEPTH}`);
+        console.log(`Radial Spokes: ${RADIAL_SPOKES}`);
+        console.log(`Golden Ratio (φ): ${PHI}`);
+    </script>
+</body>
+</html>
