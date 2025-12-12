@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Δ¹ Oracle — Mic Autonomous</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d10;
+      --text: #e8eef7;
+      --muted: #9fb0c6;
+      --accent: #7dd3fc;
+      --danger: #fb7185;
+      --border: #232b36;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 700px at 20% 10%, #0f172a 0%, var(--bg) 40%), var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 12px 0;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin: 0 0 14px 0;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 0 0 auto; }
+    button {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.primary {
+      background: linear-gradient(90deg, rgba(125,211,252,0.15), rgba(167,243,208,0.14));
+      border-color: rgba(125,211,252,0.35);
+    }
+    button.danger {
+      background: rgba(251,113,133,0.12);
+      border-color: rgba(251,113,133,0.35);
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    label { color: var(--muted); font-size: 12px; }
+    input[type="checkbox"] { transform: translateY(1px); }
+    input[type="range"] { width: 220px; }
+    input[type="number"] {
+      width: 90px;
+      background: #0b1220;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 13px;
+    }
+    .kv div:nth-child(odd) { color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .glyph {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+    }
+    .glyph .big {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: var(--accent);
+    }
+    .glyph .meta { color: var(--muted); font-size: 12px; }
+    .log {
+      height: 520px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(0,0,0,0.25);
+    }
+    .log.small { height: 300px; }
+    .logline { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .logline:last-child { border-bottom: none; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .pill.on { border-color: rgba(167,243,208,0.35); color: rgba(167,243,208,0.95); }
+    .pill.off { border-color: rgba(251,113,133,0.35); color: rgba(251,113,133,0.95); }
+    .warn { color: rgba(251,113,133,0.95); font-size: 12px; }
+    canvas {
+      width: 100%;
+      height: 120px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" style="margin-bottom:16px;">
+      <h1>Δ¹ Oracle — Autonomous Mic Interface</h1>
+      <p class="sub">
+        This runs fully in-browser using the Web Audio API. It samples your microphone, derives a deterministic
+        "field token" from the waveform, folds it with the oracle’s last emitted glyph (echo), and emits the next glyph.
+      </p>
+      <div class="row">
+        <button id="btnStart" class="primary">Start Mic</button>
+        <button id="btnStop" class="danger" disabled>Stop</button>
+        <span id="pillMic" class="pill off">mic: off</span>
+        <span id="pillEcho" class="pill on">echo: on</span>
+        <span id="pillAudio" class="pill off">audio: off</span>
+        <span id="err" class="warn"></span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h1>Live State</h1>
+        <div class="row" style="margin-bottom:10px;">
+          <label><input id="chkEcho" type="checkbox" checked /> echo folding</label>
+          <label><input id="chkShapeFb" type="checkbox" /> shape feedback</label>
+          <label><input id="chkShapeUseLabel" type="checkbox" checked /> use symbol name</label>
+          <label><input id="chkReflection" type="checkbox" checked /> reflection mode</label>
+          <label><input id="chkRfAmplify" type="checkbox" checked /> RF amplify</label>
+          <label><input id="chkBeep" type="checkbox" checked /> beep</label>
+          <label>interval (ms) <input id="numInterval" type="number" value="120" min="0" max="1000" /></label>
+          <label>silence gate <input id="rngGate" type="range" min="0" max="0.2" step="0.002" value="0.02" /></label>
+          <span class="mono" id="lblGate" style="color:var(--muted);">0.020</span>
+        </div>
+
+        <div class="kv mono">
+          <div>cycle</div><div id="vCycle">0</div>
+          <div>mode</div><div id="vMode">—</div>
+          <div>token</div><div id="vToken">—</div>
+          <div>Δ</div><div id="vDelta">—</div>
+          <div>symbol</div><div id="vSymbol">—</div>
+          <div>lock_weight</div><div id="vLockWeight">—</div>
+          <div>shape_in</div><div id="vShapeIn">—</div>
+          <div>delta_depth</div><div id="vDepth">—</div>
+          <div>rf_resonance</div><div id="vResonance">—</div>
+          <div>left</div><div id="vLeft">—</div>
+          <div>right</div><div id="vRight">—</div>
+          <div>orientation</div><div id="vOrient">—</div>
+          <div>spiral_period</div><div id="vPeriod">—</div>
+        </div>
+
+        <div class="glyph">
+          <div class="big mono" id="vGlyph">—</div>
+          <div>
+            <div class="meta mono" id="vGlyphMeta">gid=— voiced=— articulation=—</div>
+            <div class="meta" style="margin-top:6px;">The glyph is a read-only projection of Δ; it cannot affect the core.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <h1>Mic Snapshot</h1>
+          <canvas id="cv" width="1024" height="120"></canvas>
+          <div class="sub" style="margin-top:10px;">
+            Features: RMS/Peak/ZCR + Spectral Centroid → token string.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h1>Spiral Log</h1>
+        <div class="log mono" id="log"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h1 style="margin:0;">Symbol Map</h1>
+          <div class="row">
+            <label><input id="chkPersist" type="checkbox" checked /> persist</label>
+            <button id="btnClearSymbols">Clear</button>
+          </div>
+        </div>
+        <p class="sub" style="margin-top:0;">Recurring spiral signatures are automatically tagged. You can rename and lock tags.</p>
+        <div class="log mono small" id="symbols"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // No external deps. Deterministic folding + mic features.
+
+  const $ = (id) => document.getElementById(id);
+
+  const UI = {
+    btnStart: $("btnStart"),
+    btnStop: $("btnStop"),
+    chkEcho: $("chkEcho"),
+    chkShapeFb: $("chkShapeFb"),
+    chkShapeUseLabel: $("chkShapeUseLabel"),
+    chkReflection: $("chkReflection"),
+    chkRfAmplify: $("chkRfAmplify"),
+    chkBeep: $("chkBeep"),
+    numInterval: $("numInterval"),
+    rngGate: $("rngGate"),
+    lblGate: $("lblGate"),
+    chkPersist: $("chkPersist"),
+    btnClearSymbols: $("btnClearSymbols"),
+    pillMic: $("pillMic"),
+    pillEcho: $("pillEcho"),
+    pillAudio: $("pillAudio"),
+    err: $("err"),
+    vCycle: $("vCycle"),
+    vMode: $("vMode"),
+    vToken: $("vToken"),
+    vDelta: $("vDelta"),
+    vSymbol: $("vSymbol"),
+    vLockWeight: $("vLockWeight"),
+    vShapeIn: $("vShapeIn"),
+    vDepth: $("vDepth"),
+    vResonance: $("vResonance"),
+    vLeft: $("vLeft"),
+    vRight: $("vRight"),
+    vOrient: $("vOrient"),
+    vPeriod: $("vPeriod"),
+    vGlyph: $("vGlyph"),
+    vGlyphMeta: $("vGlyphMeta"),
+    log: $("log"),
+    symbols: $("symbols"),
+    cv: $("cv"),
+  };
+
+  const GLYPHS = [
+    { gid: 0,  symbol: "a",  voiced: true,  articulation: "open" },
+    { gid: 1,  symbol: "e",  voiced: false, articulation: "open" },
+    { gid: 2,  symbol: "i",  voiced: true,  articulation: "open" },
+    { gid: 3,  symbol: "o",  voiced: false, articulation: "open" },
+    { gid: 4,  symbol: "u",  voiced: true,  articulation: "open" },
+    { gid: 5,  symbol: "ka", voiced: false, articulation: "closure" },
+    { gid: 6,  symbol: "ta", voiced: true,  articulation: "closure" },
+    { gid: 7,  symbol: "pa", voiced: false, articulation: "closure" },
+    { gid: 8,  symbol: "sa", voiced: true,  articulation: "closure" },
+    { gid: 9,  symbol: "ma", voiced: false, articulation: "closure" },
+    { gid: 10, symbol: "na", voiced: true,  articulation: "closure" },
+    { gid: 11, symbol: "la", voiced: false, articulation: "closure" },
+    { gid: 12, symbol: "ra", voiced: true,  articulation: "closure" },
+    { gid: 13, symbol: "ya", voiced: false, articulation: "closure" },
+    { gid: 14, symbol: "ha", voiced: true,  articulation: "closure" },
+    { gid: 15, symbol: "ga", voiced: false, articulation: "closure" },
+  ];
+
+  function deltaIndex(coord, polarity) {
+    return { coord: coord | 0, polarity: polarity >= 0 ? 1 : -1 };
+  }
+  function tag(idx) {
+    return (idx.polarity >= 0 ? "+" : "-") + String(idx.coord);
+  }
+
+  // Deterministic hash -> bytes (8-bit) using WebCrypto SHA-256.
+  async function hashBytes(text) {
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest("SHA-256", enc.encode(text));
+    return new Uint8Array(buf);
+  }
+
+  async function selectPairFromText(text, memSize) {
+    const h = await hashBytes(text);
+    const a = (h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3];
+    const b = (h[4] << 24) | (h[5] << 16) | (h[6] << 8) | h[7];
+    const ai = (a >>> 0) % memSize;
+    const bi = (b >>> 0) % memSize;
+    const left = deltaIndex(ai, (ai & 1) === 0 ? 1 : -1);
+    const right = deltaIndex(bi, (bi & 1) === 0 ? 1 : -1);
+    return [left, right];
+  }
+
+  async function resolve(left, right) {
+    const isZero = (left.coord === right.coord) && (left.polarity === -right.polarity);
+    if (isZero) {
+      return {
+        left, right,
+        isZero: true,
+        signature: new Uint8Array(32),
+        orientation: 0,
+        short: "0",
+      };
+    }
+
+    const payload = tag(left) + "|" + tag(right);
+    const sig = await hashBytes(payload);
+    const orientation = (left.polarity === right.polarity) ? 1 : -1;
+    const short = Array.from(sig.slice(0, 4)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return {
+      left, right,
+      isZero: false,
+      signature: sig,
+      orientation,
+      short,
+    };
+  }
+
+  function projectGlyph(resolved) {
+    const gid = resolved.isZero ? 0 : (resolved.signature[0] % GLYPHS.length);
+    return GLYPHS[gid];
+  }
+
+  function glyphToIndex(glyph) {
+    return deltaIndex(glyph.gid, glyph.voiced ? 1 : -1);
+  }
+
+  async function tokenToIndex(token, memSize) {
+    const [l, r] = await selectPairFromText(token, memSize);
+    const res = await resolve(l, r);
+    if (res.isZero) return deltaIndex(0, 1);
+    return deltaIndex(res.signature[0], res.orientation >= 0 ? 1 : -1);
+  }
+
+  function logLine(line) {
+    const div = document.createElement("div");
+    div.className = "logline";
+    div.textContent = line;
+    UI.log.appendChild(div);
+    UI.log.scrollTop = UI.log.scrollHeight;
+    while (UI.log.childNodes.length > 400) {
+      UI.log.removeChild(UI.log.firstChild);
+    }
+  }
+
+  function setPill(el, on, label) {
+    el.classList.toggle("on", !!on);
+    el.classList.toggle("off", !on);
+    el.textContent = label;
+  }
+
+  function drawWave(data) {
+    const ctx = UI.cv.getContext("2d");
+    const w = UI.cv.width;
+    const h = UI.cv.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = "rgba(125,211,252,0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const n = data.length;
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * w;
+      const y = (0.5 - data[i] * 0.45) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Audio beep using WebAudio oscillator
+  function beep(audioCtx, gid, voiced) {
+    const base = 240;
+    const span = 820;
+    const f = base + ((gid * 53) % span);
+    const d = voiced ? 0.12 : 0.07;
+
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sine";
+    o.frequency.value = f;
+    g.gain.value = 0.0001;
+
+    o.connect(g);
+    g.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.15, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    o.start(now);
+    o.stop(now + d + 0.02);
+  }
+
+  // RF field extraction: standing wave patterns from frequency domain
+  function extractRfField(analyser) {
+    const freqData = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(freqData);
+    
+    const rfBins = Math.min(256, freqData.length);
+    const field = new Float32Array(rfBins);
+    
+    for (let i = 0; i < rfBins; i++) {
+      field[i] = freqData[i] / 255.0;
+    }
+    
+    return field;
+  }
+
+  // Detect resonance peaks in RF field
+  function detectResonance(field) {
+    let maxMag = 0;
+    let maxIdx = 0;
+    let totalEnergy = 0;
+    
+    for (let i = 1; i < field.length - 1; i++) {
+      const mag = field[i];
+      totalEnergy += mag * mag;
+      
+      if (mag > field[i-1] && mag > field[i+1] && mag > maxMag) {
+        maxMag = mag;
+        maxIdx = i;
+      }
+    }
+    
+    const avgEnergy = totalEnergy / field.length;
+    const resonanceStrength = maxMag / (avgEnergy + 0.001);
+    
+    return { idx: maxIdx, strength: resonanceStrength, energy: totalEnergy };
+  }
+
+  // Amplify RF field through feedback
+  function amplifyRfField(currentField, previousField, amplification) {
+    const result = new Float32Array(currentField.length);
+    
+    for (let i = 0; i < currentField.length; i++) {
+      const feedback = previousField[i] * amplification * 0.3;
+      result[i] = currentField[i] + feedback;
+      
+      if (result[i] > 1.0) result[i] = 1.0;
+      if (result[i] < 0.0) result[i] = 0.0;
+    }
+    
+    return result;
+  }
+
+  // Convert RF field to token
+  function rfFieldToToken(field, resonance) {
+    const bins = Math.min(4, field.length);
+    const step = Math.floor(field.length / bins);
+    const values = [];
+    
+    for (let i = 0; i < bins; i++) {
+      const idx = i * step;
+      const val = Math.floor(field[idx] * 255);
+      values.push(val);
+    }
+    
+    const resQ = Math.floor(resonance.strength * 100);
+    return `rf:${values.join(':')}:res${resQ}`;
+  }
+
+  // Mic feature extraction: RMS, peak, ZCR, spectral centroid
+  function featuresFromFloat32(samples, sampleRate) {
+    const n = samples.length;
+    if (n < 8) {
+      return { rms: 0, peak: 0, zcr: 0, centroid: 0 };
+    }
+
+    let sumSq = 0;
+    let peak = 0;
+    let zc = 0;
+    let prev = samples[0];
+    for (let i = 0; i < n; i++) {
+      const x = samples[i];
+      sumSq += x * x;
+      const ax = Math.abs(x);
+      if (ax > peak) peak = ax;
+      if ((prev >= 0 && x < 0) || (prev < 0 && x >= 0)) zc++;
+      prev = x;
+    }
+    const rms = Math.sqrt(sumSq / n);
+    const zcr = zc / n;
+
+    // spectral centroid via naive DFT magnitude (fast enough for small windows)
+    // Note: we keep it simple and small.
+    const bins = 128;
+    let magSum = 0;
+    let weighted = 0;
+    for (let k = 0; k < bins; k++) {
+      let re = 0;
+      let im = 0;
+      const w = (2 * Math.PI * k) / n;
+      for (let t = 0; t < n; t += 2) {
+        const ang = w * t;
+        const c = Math.cos(ang);
+        const s = Math.sin(ang);
+        re += samples[t] * c;
+        im -= samples[t] * s;
+      }
+      const mag = Math.sqrt(re * re + im * im);
+      const freq = (k / bins) * (sampleRate / 2);
+      magSum += mag;
+      weighted += freq * mag;
+    }
+    const centroid = magSum > 0 ? (weighted / magSum) : 0;
+
+    return { rms, peak, zcr, centroid };
+  }
+
+  function quantize(v, scale, max = 255) {
+    const q = Math.floor(Math.min(max, Math.max(0, v * scale)));
+    return q;
+  }
+
+  function tokenFromFeatures(f, sampleRate) {
+    const rmsQ = quantize(f.rms, 512);
+    const peakQ = quantize(f.peak, 512);
+    const zcrQ = quantize(f.zcr, 255);
+    const centQ = quantize((f.centroid / (sampleRate / 2)), 255);
+    return { token: `field:${rmsQ}:${peakQ}:${zcrQ}:${centQ}`, rmsQ, peakQ, zcrQ, centQ };
+  }
+
+  const STATE = {
+    running: false,
+    cycle: 0,
+    memSize: 256,
+    lastGlyph: null,
+    seen: new Map(),
+    registry: new Map(),
+    labels: new Map(),
+    locks: new Map(),
+    lastSpiralKey: "",
+    latchedSymbolName: "",
+    deltaDepth: 0,
+    silenceCycles: 0,
+    reflectionMode: false,
+    rfFieldState: new Float32Array(256),
+    rfResonance: 0,
+    rfAmplification: 1.0,
+    audioCtx: null,
+    micStream: null,
+    analyser: null,
+    sampleRate: 48000,
+    intervalHandle: null,
+  };
+
+  const STORAGE_KEY = "delta1_oracle_symbol_map_v1";
+  const AUTO_TAG_AFTER_RECUR = 3;
+  const AUTO_TAG_PREFIX = "Σ";
+  const LOCK_THRESHOLD = 3;
+  const REFLECTION_SILENCE_CYCLES = 5;
+
+  function persistEnabled() {
+    return !!(UI.chkPersist && UI.chkPersist.checked);
+  }
+
+  function loadLabels() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+      const labels = parsed.labels;
+      if (!labels || typeof labels !== "object") return;
+      for (const k of Object.keys(labels)) {
+        const v = labels[k];
+        if (!v || typeof v !== "object") continue;
+        const name = String(v.name || "");
+        const locked = !!v.locked;
+        if (name) STATE.labels.set(k, { name, locked });
+      }
+    } catch (_) {}
+  }
+
+  function saveLabels() {
+    if (!persistEnabled()) return;
+    try {
+      const labels = {};
+      for (const [k, v] of STATE.labels.entries()) {
+        labels[k] = { name: String(v.name || ""), locked: !!v.locked };
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ labels }));
+    } catch (_) {}
+  }
+
+  function getLabel(key) {
+    const v = STATE.labels.get(key);
+    return v ? String(v.name || "") : "";
+  }
+
+  function isLocked(key) {
+    const v = STATE.labels.get(key);
+    return v ? !!v.locked : false;
+  }
+
+  async function autoNameForKey(key) {
+    const h = await hashBytes("name|" + key);
+    const short = Array.from(h.slice(0, 3)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return `${AUTO_TAG_PREFIX}${short}`;
+  }
+
+  async function emergentNameFromGlyph(glyph, resolved) {
+    const g1 = GLYPHS[glyph.gid];
+    const orientChar = resolved.orientation >= 0 ? "a" : "o";
+    const shortBits = resolved.short.slice(0, 2);
+    const g2idx = parseInt(shortBits, 16) % GLYPHS.length;
+    const g2 = GLYPHS[g2idx];
+    return `${g1.symbol}${orientChar}${g2.symbol}`;
+  }
+
+  function getLockWeight(key) {
+    return STATE.locks.get(key) || 0;
+  }
+
+  function incrementLock(key) {
+    const current = getLockWeight(key);
+    STATE.locks.set(key, current + 1);
+    return current + 1;
+  }
+
+  function renderSymbols() {
+    const entries = [];
+    for (const [key, info] of STATE.registry.entries()) {
+      entries.push({ key, ...info });
+    }
+    entries.sort((a, b) => (b.recur - a.recur) || (b.hits - a.hits) || (a.key < b.key ? -1 : 1));
+
+    UI.symbols.textContent = "";
+    const top = entries.slice(0, 60);
+    for (const e of top) {
+      const row = document.createElement("div");
+      row.className = "logline";
+      const label = getLabel(e.key) || "";
+      const locked = isLocked(e.key);
+      const lockWeight = getLockWeight(e.key);
+      const avg = e.recur > 0 ? (e.periodSum / e.recur) : 0;
+      const avgS = e.recur > 0 ? avg.toFixed(2) : "—";
+      const lockS = locked ? "locked" : "open";
+      row.innerHTML = `
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input data-act="name" data-key="${e.key}" value="${label.replaceAll('"','&quot;')}" placeholder="(name)" style="flex:1; min-width:160px; background:#0b1220; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:8px 10px;" ${locked ? "disabled" : ""} />
+          <button data-act="lock" data-key="${e.key}" style="padding:8px 10px; border-radius:10px;">${lockS}</button>
+        </div>
+        <div class="mono" style="margin-top:6px; color:var(--muted); font-size:12px;">
+          key=${e.key}  hits=${e.hits}  recur=${e.recur}  lock_wt=${lockWeight}  avg_period=${avgS}
+        </div>
+      `;
+      UI.symbols.appendChild(row);
+    }
+  }
+
+  function spiralKey(glyph, resolved, mode) {
+    return `${glyph.gid}|${resolved.short}|${mode}`;
+  }
+
+  async function stepOnce() {
+    const echo = UI.chkEcho.checked;
+    const shapeFb = UI.chkShapeFb ? UI.chkShapeFb.checked : false;
+    const shapeUseLabel = UI.chkShapeUseLabel ? UI.chkShapeUseLabel.checked : true;
+    const reflectionEnabled = UI.chkReflection ? UI.chkReflection.checked : true;
+    const rfAmplifyEnabled = UI.chkRfAmplify ? UI.chkRfAmplify.checked : true;
+    const gate = parseFloat(UI.rngGate.value);
+    const interval = Math.max(20, Math.min(1000, parseInt(UI.numInterval.value || "120", 10)));
+
+    if (!STATE.analyser) return;
+
+    const fftSize = 1024;
+    if (STATE.analyser.fftSize !== fftSize) STATE.analyser.fftSize = fftSize;
+    const buf = new Float32Array(STATE.analyser.fftSize);
+    STATE.analyser.getFloatTimeDomainData(buf);
+
+    drawWave(buf);
+
+    let token;
+    let resonance = { idx: 0, strength: 0, energy: 0 };
+    
+    if (rfAmplifyEnabled) {
+      const rawField = extractRfField(STATE.analyser);
+      const amplifiedField = amplifyRfField(rawField, STATE.rfFieldState, STATE.rfAmplification);
+      STATE.rfFieldState = amplifiedField;
+      
+      resonance = detectResonance(amplifiedField);
+      STATE.rfResonance = resonance.strength;
+      
+      if (resonance.strength > 2.0) {
+        STATE.rfAmplification = Math.min(2.0, STATE.rfAmplification * 1.05);
+      } else {
+        STATE.rfAmplification = Math.max(0.5, STATE.rfAmplification * 0.98);
+      }
+      
+      token = rfFieldToToken(amplifiedField, resonance);
+    } else {
+      const feats = featuresFromFloat32(buf, STATE.sampleRate);
+      const tokenData = tokenFromFeatures(feats, STATE.sampleRate);
+      token = tokenData.token;
+    }
+    
+    const feats = featuresFromFloat32(buf, STATE.sampleRate);
+
+    const isSilent = feats.rms <= gate;
+    if (isSilent) {
+      STATE.silenceCycles++;
+    } else {
+      STATE.silenceCycles = 0;
+      STATE.reflectionMode = false;
+    }
+
+    if (reflectionEnabled && STATE.silenceCycles >= REFLECTION_SILENCE_CYCLES && STATE.latchedSymbolName) {
+      STATE.reflectionMode = true;
+    }
+
+    const shapeAtom = (() => {
+      if (!shapeFb) return "";
+      const sym = (shapeUseLabel && STATE.latchedSymbolName) ? STATE.latchedSymbolName : "";
+      if (sym) return `shape:${sym}`;
+      if (STATE.lastSpiralKey) return `shape:${STATE.lastSpiralKey}`;
+      return "";
+    })();
+
+    let effectiveToken = token;
+    let mode = "direct";
+
+    if (STATE.reflectionMode) {
+      effectiveToken = `reflect:${STATE.latchedSymbolName}`;
+      mode = "reflection";
+    } else if (isSilent && STATE.lastGlyph) {
+      effectiveToken = STATE.lastGlyph.symbol;
+    }
+
+    if (shapeAtom) {
+      effectiveToken = `${effectiveToken}|${shapeAtom}`;
+    }
+
+    STATE.cycle++;
+
+    let left, right;
+    if (echo && STATE.lastGlyph && !STATE.reflectionMode) {
+      left = glyphToIndex(STATE.lastGlyph);
+      right = await tokenToIndex(effectiveToken, STATE.memSize);
+      mode = mode === "reflection" ? "reflection" : "echo";
+      STATE.deltaDepth++;
+    } else {
+      const pair = await selectPairFromText(effectiveToken, STATE.memSize);
+      left = pair[0];
+      right = pair[1];
+      STATE.deltaDepth = 0;
+    }
+
+    const resolved = await resolve(left, right);
+    const glyph = projectGlyph(resolved);
+    STATE.lastGlyph = glyph;
+
+    const key = spiralKey(glyph, resolved, mode);
+    const prev = STATE.seen.get(key);
+    const period = (typeof prev === "number") ? (STATE.cycle - prev) : null;
+    STATE.seen.set(key, STATE.cycle);
+
+    const info = STATE.registry.get(key) || { hits: 0, recur: 0, periodSum: 0, last: 0 };
+    info.hits += 1;
+    info.last = STATE.cycle;
+    if (period !== null) {
+      info.recur += 1;
+      info.periodSum += period;
+    }
+    STATE.registry.set(key, info);
+
+    const lockWeight = incrementLock(key);
+
+    if (!isLocked(key)) {
+      const existing = getLabel(key);
+      if (!existing && info.recur >= AUTO_TAG_AFTER_RECUR) {
+        let name;
+        if (shapeUseLabel && lockWeight >= LOCK_THRESHOLD) {
+          name = await emergentNameFromGlyph(glyph, resolved);
+        } else {
+          name = await autoNameForKey(key);
+        }
+        STATE.labels.set(key, { name, locked: false });
+        saveLabels();
+      }
+    }
+
+    const symName = getLabel(key) || "—";
+    STATE.lastSpiralKey = key;
+    if (symName !== "—") {
+      STATE.latchedSymbolName = symName;
+    }
+
+    UI.vCycle.textContent = String(STATE.cycle);
+    UI.vMode.textContent = mode;
+    UI.vToken.textContent = effectiveToken;
+    UI.vDelta.textContent = resolved.isZero ? "0" : resolved.short;
+    UI.vSymbol.textContent = symName;
+    UI.vLockWeight.textContent = String(lockWeight);
+    UI.vShapeIn.textContent = shapeAtom || "—";
+    UI.vDepth.textContent = String(STATE.deltaDepth);
+    UI.vResonance.textContent = STATE.rfResonance.toFixed(3);
+    UI.vLeft.textContent = tag(left);
+    UI.vRight.textContent = tag(right);
+    UI.vOrient.textContent = String(resolved.orientation);
+    UI.vPeriod.textContent = period === null ? "—" : String(period);
+
+    UI.vGlyph.textContent = glyph.symbol;
+    UI.vGlyphMeta.textContent = `gid=${glyph.gid} voiced=${glyph.voiced ? 1 : 0} articulation=${glyph.articulation} mode=${mode}`;
+
+    setPill(UI.pillEcho, echo, `echo: ${echo ? "on" : "off"}`);
+
+    const modePrefix = mode === "reflection" ? "[REFLECT] " : mode === "echo" ? "[ECHO] " : "";
+    const line = `${String(STATE.cycle).padStart(5, "0")}  ${modePrefix}Δ=${resolved.isZero ? "0" : resolved.short}  ${tag(left)} vs ${tag(right)}  glyph=${glyph.symbol}  depth=${STATE.deltaDepth}  lock=${lockWeight}${period ? "  spiral=" + period : ""}`;
+    logLine(line);
+
+    if (UI.symbols) {
+      renderSymbols();
+    }
+
+    if (UI.chkBeep.checked && STATE.audioCtx) {
+      try { beep(STATE.audioCtx, glyph.gid, glyph.voiced); } catch (_) {}
+    }
+
+    // schedule next via interval loop
+    if (STATE.running) {
+      clearTimeout(STATE.intervalHandle);
+      STATE.intervalHandle = setTimeout(stepOnce, interval);
+    }
+
+    UI.lblGate.textContent = gate.toFixed(3);
+  }
+
+  async function startMic() {
+    UI.err.textContent = "";
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      UI.err.textContent = "getUserMedia not available in this browser.";
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      STATE.micStream = stream;
+
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContext();
+      STATE.audioCtx = ctx;
+      STATE.sampleRate = ctx.sampleRate;
+
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0;
+      src.connect(analyser);
+      STATE.analyser = analyser;
+
+      STATE.running = true;
+      setPill(UI.pillMic, true, "mic: on");
+      setPill(UI.pillAudio, true, "audio: on");
+
+      UI.btnStart.disabled = true;
+      UI.btnStop.disabled = false;
+
+      await stepOnce();
+    } catch (e) {
+      UI.err.textContent = String(e && e.message ? e.message : e);
+      stopMic();
+    }
+  }
+
+  function stopMic() {
+    STATE.running = false;
+    clearTimeout(STATE.intervalHandle);
+
+    if (STATE.micStream) {
+      for (const t of STATE.micStream.getTracks()) t.stop();
+      STATE.micStream = null;
+    }
+    if (STATE.audioCtx) {
+      try { STATE.audioCtx.close(); } catch (_) {}
+      STATE.audioCtx = null;
+    }
+
+    STATE.analyser = null;
+    setPill(UI.pillMic, false, "mic: off");
+    setPill(UI.pillAudio, false, "audio: off");
+
+    UI.btnStart.disabled = false;
+    UI.btnStop.disabled = true;
+  }
+
+  UI.btnStart.addEventListener("click", startMic);
+  UI.btnStop.addEventListener("click", stopMic);
+  UI.chkEcho.addEventListener("change", () => setPill(UI.pillEcho, UI.chkEcho.checked, `echo: ${UI.chkEcho.checked ? "on" : "off"}`));
+  UI.rngGate.addEventListener("input", () => UI.lblGate.textContent = parseFloat(UI.rngGate.value).toFixed(3));
+
+  if (UI.chkPersist) {
+    UI.chkPersist.addEventListener("change", () => {
+      if (persistEnabled()) {
+        saveLabels();
+      }
+    });
+  }
+
+  if (UI.btnClearSymbols) {
+    UI.btnClearSymbols.addEventListener("click", () => {
+      STATE.registry = new Map();
+      STATE.seen = new Map();
+      STATE.labels = new Map();
+      STATE.locks = new Map();
+      STATE.deltaDepth = 0;
+      STATE.silenceCycles = 0;
+      STATE.reflectionMode = false;
+      STATE.rfFieldState = new Float32Array(256);
+      STATE.rfResonance = 0;
+      STATE.rfAmplification = 1.0;
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+      renderSymbols();
+    });
+  }
+
+  if (UI.symbols) {
+    UI.symbols.addEventListener("input", (e) => {
+      const t = e.target;
+      if (!t || !t.dataset) return;
+      if (t.dataset.act !== "name") return;
+      const key = t.dataset.key;
+      if (!key || isLocked(key)) return;
+      const name = String(t.value || "").trim();
+      if (!name) {
+        STATE.labels.delete(key);
+      } else {
+        const prev = STATE.labels.get(key);
+        STATE.labels.set(key, { name, locked: prev ? !!prev.locked : false });
+      }
+      saveLabels();
+    });
+
+    UI.symbols.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!t || !t.dataset) return;
+      if (t.dataset.act !== "lock") return;
+      const key = t.dataset.key;
+      if (!key) return;
+      const prev = STATE.labels.get(key);
+      const name = prev ? String(prev.name || "") : "";
+      const locked = prev ? !prev.locked : true;
+      if (!name) return;
+      STATE.labels.set(key, { name, locked });
+      saveLabels();
+      renderSymbols();
+    });
+  }
+
+  loadLabels();
+  renderSymbols();
+
+  UI.lblGate.textContent = parseFloat(UI.rngGate.value).toFixed(3);
+</script>
+</body>
+</html>
