@@ -56,8 +56,8 @@ def get_all_paths(prices: np.ndarray, future_steps: int = 20) -> Dict:
     if future_steps < 1:
         raise ValueError("future_steps must be at least 1")
     
-    # Add small epsilon to prevent log(0), though we've already validated x > 0
-    log_x = np.log(x + 1e-9)
+    # Safe to use log directly since we've validated all prices are positive
+    log_x = np.log(x)
     
     # Delta and Echo - calculate price changes in log space
     delta = np.diff(log_x)
@@ -105,15 +105,13 @@ def get_all_paths(prices: np.ndarray, future_steps: int = 20) -> Dict:
         'MOON':      2.0,   # Right tail (+2σ) - sharp rise
     }
     
-    # Calculate probabilities for each path
-    path_probs = [stats.norm.pdf(z) for z in path_z_scores.values()]
-    prob_sum = sum(path_probs)
+    DAMPING_FACTOR = 0.1  # Controls how aggressively paths diverge
     
-    # Ensure we don't divide by zero
+    # Calculate normalization factor for probabilities
+    prob_sum = sum(stats.norm.pdf(z) for z in path_z_scores.values())
+    # Ensure we don't divide by zero (should never happen but for safety)
     if prob_sum < 1e-10:
         prob_sum = 1.0
-    
-    DAMPING_FACTOR = 0.1  # Controls how aggressively paths diverge
     
     for name, z in path_z_scores.items():
         # Probability of this path (normalized across the 5 canonical paths)
@@ -130,7 +128,10 @@ def get_all_paths(prices: np.ndarray, future_steps: int = 20) -> Dict:
             
             # Sanity check: ensure projected price is reasonable
             if next_price <= 0 or np.isnan(next_price) or np.isinf(next_price):
-                next_price = projected[-1]  # Keep previous price if calculation fails
+                # This should rarely happen, but if it does, use a conservative fallback
+                import warnings
+                warnings.warn(f"Invalid projected price {next_price} for path {name} at step {i}. Using previous price.")
+                next_price = projected[-1]
             
             projected.append(next_price)
         
@@ -252,7 +253,7 @@ def visualize_paths(symbol: str = "AAPL", period: str = "3mo") -> Dict:
             ax1.axvline(data['z_score'], color=color, linestyle='--', alpha=0.5)
             ax1.text(data['z_score'], text_y_position, name, ha='center', fontsize=8, color=color)
     except Exception as e:
-        print(f"Warning: Error plotting bell curve: {e}")
+        print(f"Warning: Failed to plot bell curve visualization: {e}")
     
     ax1.set_xlabel('Z-Score')
     ax1.set_ylabel('Probability Density')
@@ -284,7 +285,7 @@ def visualize_paths(symbol: str = "AAPL", period: str = "3mo") -> Dict:
         ax2.legend(loc='upper left', fontsize=8)
         ax2.grid(True, alpha=0.3)
     except Exception as e:
-        print(f"Warning: Error plotting trajectories: {e}")
+        print(f"Warning: Failed to plot path trajectories: {e}")
     
     # 3. Path Probabilities
     ax3 = axes[2]
@@ -320,13 +321,13 @@ def visualize_paths(symbol: str = "AAPL", period: str = "3mo") -> Dict:
         ax3.set_xlim(0, max_prob + 20)
         ax3.grid(True, alpha=0.3, axis='x')
     except Exception as e:
-        print(f"Warning: Error plotting probabilities: {e}")
+        print(f"Warning: Failed to plot probability bars: {e}")
     
     try:
         plt.tight_layout()
         plt.show()
     except Exception as e:
-        print(f"Warning: Error displaying plot: {e}")
+        print(f"Warning: Failed to display matplotlib figure: {e}")
     
     # Print summary to console
     try:
@@ -347,7 +348,7 @@ def visualize_paths(symbol: str = "AAPL", period: str = "3mo") -> Dict:
         
         print(f"{'='*SEPARATOR_WIDTH}\n")
     except Exception as e:
-        print(f"Warning: Error printing summary: {e}")
+        print(f"Warning: Failed to print analysis summary: {e}")
     
     return oracle
 
