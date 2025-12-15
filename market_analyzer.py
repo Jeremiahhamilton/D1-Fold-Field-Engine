@@ -18,6 +18,7 @@ from tkinter import ttk, filedialog, messagebox
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from numpy.lib.stride_tricks import sliding_window_view
 
 try:
     import tkinterdnd2 as tkdnd
@@ -155,14 +156,25 @@ def analyze_market(prices):
         to_next = m
         confidence = 0.5
     
-    # Support/Resistance
+    # Support/Resistance (vectorized to avoid repeated Python slicing work)
     support = []
     resistance = []
-    for i in range(10, m - 10):
-        if mag_norm[i] > max(mag_norm[i-10:i]) and mag_norm[i] > max(mag_norm[i+1:i+11]):
-            resistance.append(x[i+1])
-        if mag_norm[i] < min(mag_norm[i-10:i]) and mag_norm[i] < min(mag_norm[i+1:i+11]):
-            support.append(x[i+1])
+    if m > 20:
+        idx = np.arange(10, m - 10)
+        prev_windows = sliding_window_view(mag_norm, 10)
+        next_windows = sliding_window_view(mag_norm[1:], 10)
+
+        prev_max = np.max(prev_windows[idx - 10], axis=1)
+        next_max = np.max(next_windows[idx - 10], axis=1)
+        prev_min = np.min(prev_windows[idx - 10], axis=1)
+        next_min = np.min(next_windows[idx - 10], axis=1)
+
+        local_vals = mag_norm[idx]
+        resistance_mask = (local_vals > prev_max) & (local_vals > next_max)
+        support_mask = (local_vals < prev_min) & (local_vals < next_min)
+
+        resistance = x[idx + 1][resistance_mask].tolist()
+        support = x[idx + 1][support_mask].tolist()
     
     # Trend strength (magnitude of recent moves)
     recent_mag = np.mean(mag_norm[-20:]) if len(mag_norm) >= 20 else np.mean(mag_norm)
@@ -272,14 +284,25 @@ def analyze_market(prices):
         to_next = m
         confidence = 0.5
     
-    # Support/Resistance
+    # Support/Resistance (vectorized to avoid repeated Python slicing work)
     support = []
     resistance = []
-    for i in range(10, m - 10):
-        if mag_norm[i] > max(mag_norm[i-10:i]) and mag_norm[i] > max(mag_norm[i+1:i+11]):
-            resistance.append(x[i+1])
-        if mag_norm[i] < min(mag_norm[i-10:i]) and mag_norm[i] < min(mag_norm[i+1:i+11]):
-            support.append(x[i+1])
+    if m > 20:
+        idx = np.arange(10, m - 10)
+        prev_windows = sliding_window_view(mag_norm, 10)
+        next_windows = sliding_window_view(mag_norm[1:], 10)
+
+        prev_max = np.max(prev_windows[idx - 10], axis=1)
+        next_max = np.max(next_windows[idx - 10], axis=1)
+        prev_min = np.min(prev_windows[idx - 10], axis=1)
+        next_min = np.min(next_windows[idx - 10], axis=1)
+
+        local_vals = mag_norm[idx]
+        resistance_mask = (local_vals > prev_max) & (local_vals > next_max)
+        support_mask = (local_vals < prev_min) & (local_vals < next_min)
+
+        resistance = x[idx + 1][resistance_mask].tolist()
+        support = x[idx + 1][support_mask].tolist()
     
     # Trend strength
     recent_mag = np.mean(mag_norm[-20:]) if len(mag_norm) >= 20 else np.mean(mag_norm)
