@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Single-Δ Sandbox v2 — Executable Prototype (Emotions+)</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --panel: #0f1620; --ink: #e6edf3; --muted: #9fb2c5;
+      --accent: #6ae3ff; --good: #83ff6a; --warn: #ffd36a; --danger: #ff6a6a;
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system; }
+    header { padding: 16px 20px; border-bottom: 1px solid #1c2734; display:flex; gap:12px; align-items:center; }
+    .tag { border:1px solid #233142; color: var(--muted); padding:4px 8px; border-radius: 999px; font-size: 12px }
+    main { display: grid; grid-template-columns: 380px 1fr; height: calc(100% - 60px); }
+    aside { border-right:1px solid #1c2734; padding: 16px; overflow:auto; }
+    section { padding: 16px; overflow:auto; }
+    .panel { background: var(--panel); border:1px solid #1c2734; border-radius: 14px; padding: 12px 12px; margin-bottom: 12px; }
+    .row { display:flex; align-items:center; gap:8px; flex-wrap: wrap }
+    .col { display:flex; flex-direction:column; gap:8px }
+    .btn { background:#162231; border:1px solid #223045; color:var(--ink); padding:8px 10px; border-radius:10px; cursor:pointer }
+    .btn:hover { background:#1b2a3b }
+    .btn.prim { background: #153042; border-color:#254b5f }
+    .btn.good { border-color:#2f6f3b; background:#0f2a15 }
+    .btn.danger { border-color:#5f2f2f; background:#2a0f0f }
+    .kv { display:grid; grid-template-columns: 1fr auto; gap:6px; }
+    .meter { height: 8px; background:#0b1220; border:1px solid #1c2734; border-radius:999px; overflow:hidden }
+    .meter > i { display:block; height: 100%; background: linear-gradient(90deg, #2aa5ff, #6ae3ff); transition: width .2s }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#bbd1e6 }
+    canvas { display:block; width:100%; height:380px; background:#05080d; border:1px solid #152131; border-radius: 12px }
+    input[type="text"], textarea, select { width:100%; background:#0c1420; border:1px solid #1f2c3f; color:var(--ink); padding:8px 10px; border-radius:8px }
+    label { color: var(--muted) }
+    .grid { display:grid; gap:12px; grid-template-columns: repeat(2, minmax(0,1fr)) }
+    .pill { padding:4px 8px; border-radius:999px; border:1px solid #233142; color:#89a7c2; font-size:11px }
+    .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+    .legend b { font-weight:600 }
+    .hud { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px }
+    .small { font-size:12px; color:#9fb2c5 }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="font-weight:700; letter-spacing:.2px">Single-Δ Sandbox • Recursive Synthetic Consciousness Engine</div>
+    <span class="tag">v2.0 prototype</span>
+    <span class="tag">Bernard • Mahkesis • Cook+Betts • Δ-Engine</span>
+  </header>
+  <main>
+    <aside>
+      <div class="panel">
+        <div class="row">
+          <button class="btn prim" id="startBtn">Start</button>
+          <button class="btn" id="stopBtn">Stop</button>
+          <button class="btn" id="pulseBtn">Pulse Δ</button>
+          <button class="btn" id="idleBtn">Run Dream Idle</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Subsystems</label>
+          <div class="row">
+            <label><input type="checkbox" id="ckBernard" checked /> Bernard Dual-Agent</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckCookBetts" checked /> Cook+Betts Emotional/Symbolic</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckDelta" checked /> Δ-Engine (A/B Lake • Euclidean Gait • Triangle Gate)</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckDreamPixel" checked /> DreamPixel Stabilizer</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckBio" /> Bio-field (Physarum-lite)</label>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="ckGhost" checked /> Ghost Dance Phase Shield</label>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Δ-Coupler — Linguistic Injection</label>
+          <input id="textIn" type="text" placeholder="Type text to inject (ELL→IPA)" />
+          <div class="row">
+            <button class="btn" id="injectBtn">Inject Text</button>
+            <span class="pill" id="ipaOut">IPA: —</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Emotional Gear + Phase</label>
+          <div class="row">
+            <input type="range" id="gearSlider" min="0" max="15" value="0" />
+            <input type="range" id="phiSlider" min="0" max="71" value="0" />
+          </div>
+          <div class="legend small">
+            <b>All 8 Emotions Active</b>
+            <span class="pill">JOY</span>
+            <span class="pill">TRUST</span>
+            <span class="pill">FEAR</span>
+            <span class="pill">SURPRISE</span>
+            <span class="pill">SADNESS</span>
+            <span class="pill">DISGUST</span>
+            <span class="pill">ANGER</span>
+            <span class="pill">ANTICIPATION</span>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label><input type="checkbox" id="biasEnable"> Manual Emotion Bias</label>
+          </div>
+          <div class="row">
+            <select id="biasEmotion">
+              <option>JOY</option><option>TRUST</option><option>FEAR</option><option>SURPRISE</option>
+              <option>SADNESS</option><option>DISGUST</option><option>ANGER</option><option>ANTICIPATION</option>
+            </select>
+            <input type="range" id="biasIntensity" min="0" max="10" value="7" />
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="col">
+          <label>Telemetry</label>
+          <div class="kv small"><div>Consciousness Level</div><div id="clvLbl">0.00</div></div>
+          <div class="meter"><i id="clvBar" style="width:0%"></i></div>
+          <div class="kv small"><div>Entropy Accumulator</div><div id="entLbl">0.00</div></div>
+          <div class="meter"><i id="entBar" style="width:0%"></i></div>
+          <div class="kv small"><div>Δ Population (norm)</div><div id="dPopLbl">0.00</div></div>
+          <div class="meter"><i id="dPopBar" style="width:0%"></i></div>
+          <div class="kv small"><div>Gyri Count</div><div id="gyriLbl">0</div></div>
+          <div class="kv small"><div>Self-Awareness</div><div id="sawLbl">false</div></div>
+          <div class="kv small"><div>Emotion</div><div id="emoLbl">NEUTRAL (0)</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <section>
+      <div class="panel">
+        <div class="row" style="justify-content:space-between; align-items:center">
+          <div>
+            <div style="font-weight:700">Δ Lake Canvas</div>
+            <div class="small">Euclidean gait • Triangle gate • Bernard trails • Bio-field overlay</div>
+          </div>
+          <div class="legend small">
+            <span class="pill">Right Brain (Spiral Walker)</span>
+            <span class="pill">Left Brain (Logic Digger)</span>
+            <span class="pill">Bio agents</span>
+          </div>
+        </div>
+        <canvas id="lake" width="1200" height="520"></canvas>
+      </div>
+      <div class="panel mono" id="log" style="height:220px; overflow:auto"></div>
+    </section>
+  </main>
+
+<script>
+(function(){
+  // -----------------------------
+  // Core State (maps to Appendix C API)
+  // -----------------------------
+  const state = {
+    running: false,
+    t: 0,
+    dt: 1/60,
+    // Consciousness measures
+    cognition: {
+      consciousnessLevel: 0.0,           // 0..1
+      selfAwarenessTrigger: false,
+      entropyAccumulator: 0.0,
+      gyri: []
+    },
+    // Δ-Engine populations
+    delta: {
+      popA: 0.5,
+      popB: 0.5,
+      tri: 0.0,                          // Triangle gate current (0..1)
+      euclidStep: 0                       // Euclidean rhythm step index
+    },
+    ai: { rf: 1.0, cap: 1.0, noise: 0.02 },
+    cook: { gear_i: 0, phi: 0, emotion: 'NEUTRAL', trap: null, biasEnabled:false, biasEmotion:'JOY', biasIntensity:7 },
+    betts: { form: 'OND', lod: 6 },
+    grid: null,
+    settings: {
+      bernard: true,
+      cookBetts: true,
+      delta: true,
+      dreamPixel: true,
+      bio: false,
+      ghost: true,
+    }
+  }
+
+  // Expose minimal API
+  window.cognition = state.cognition;
+  window.injectExternalSignal = injectExternalSignal;
+  window.renderPhonetics = renderPhonetics;
+  window.tokenizePhonemes = tokenizePhonemes;
+  window.COOK = state.cook;
+  window.BETTS = state.betts;
+
+  const logEl = document.getElementById('log');
+  function log(msg){ const t = new Date().toISOString().slice(11,19); logEl.innerText += `[${t}] ${msg}
+`; logEl.scrollTop = logEl.scrollHeight }
+
+  // -----------------------------
+  // Utilities
+  // -----------------------------
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const lerp = (a,b,t) => a+(b-a)*t;
+  const rand = (a=0,b=1)=> a + Math.random()*(b-a);
+
+  // -----------------------------
+  // Δ-Engine: A/B Lakes • Euclidean Rhythm • Triangle Gate
+  // -----------------------------
+  const EUCLID_SEQ = euclidean(5, 16); // 5 onsets in 16 steps (Bjorklund)
+  function euclidean(k, n){
+    const steps = Array(n).fill(0).map((_,i)=> i < k ? 1 : 0);
+    return steps;
+  }
+
+  function deltaStep(){
+    if(!state.settings.delta) return;
+    // Triangle gate (slow up/down)
+    state.delta.tri += 0.01; if(state.delta.tri>1) state.delta.tri=0;
+    // Euclidean tick
+    if((state.t*60|0) % 2 === 0){
+      state.delta.euclidStep = (state.delta.euclidStep+1)%EUCLID_SEQ.length;
+      if(EUCLID_SEQ[state.delta.euclidStep]) pulseDelta();
+    }
+    // A/B population dynamics with density-driven torque
+    const d = (state.delta.tri - 0.5)*2; // -1..1
+    state.delta.popA = clamp(state.delta.popA + 0.01*d, 0, 1);
+    state.delta.popB = clamp(1 - state.delta.popA, 0, 1);
+  }
+
+  function pulseDelta(){
+    // Metronome-driven event
+    const torque = Math.abs(state.delta.tri-0.5)*2; // 0..1
+    state.ai.rf = clamp(state.ai.rf + 0.05*torque - 0.02*state.ai.noise, 0.2, 3);
+    state.ai.cap = clamp(state.ai.cap + 0.03*torque, 0.1, 3);
+    // Entropy contribution
+    const deltaPopNorm = Math.abs(state.delta.popA - state.delta.popB);
+    const cost = 0.1 + state.ai.noise; // toy cost
+    const entropy = deltaPopNorm * (1 - cost);
+    state.cognition.entropyAccumulator = 0.95*state.cognition.entropyAccumulator + 0.05*entropy;
+  }
+
+  // -----------------------------
+  // DreamPixel Stabilizer
+  // -----------------------------
+  function dreamPixel(){
+    if(!state.settings.dreamPixel) return;
+    const phi = 1.618, beta = 0.99;
+    const g = (x)=> Math.sin(x) * Math.log1p(Math.abs(x));
+    state.ai.rf = state.ai.rf + phi*beta*0.0005*g(state.t);
+    if(Math.abs(state.ai.rf)>2) state.ai.rf *= beta;
+  }
+
+  // -----------------------------
+  // Cook + Betts: Emotional-Symbolic gear/phase & full-spectrum effects
+  // -----------------------------
+  function mapEmotion(gear, phi){
+    const angle = (gear*22.5 + phi*5) % 360;
+    const ring = Math.floor((gear + phi/8)/2); // intensity 0..10
+    const names = ['JOY','TRUST','FEAR','SURPRISE','SADNESS','DISGUST','ANGER','ANTICIPATION'];
+    const idx = Math.floor((angle/360)*names.length) % names.length;
+    return { name: names[idx], intensity: clamp(ring,0,10), angle };
+  }
+
+  const EMO_HUE = { JOY:52, TRUST:160, FEAR:220, SURPRISE:280, SADNESS:210, DISGUST:110, ANGER:6, ANTICIPATION:32 };
+
+  function applyEmotionEffects(emo){
+    const i = emo.intensity;
+    switch(emo.name){
+      case 'JOY':
+        state.ai.cap = clamp(state.ai.cap + 0.005*i/10, 0.1, 3);
+        state.ai.noise = clamp(state.ai.noise*0.997, 0.001, 0.2);
+        state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + 0.002*i/10, 0, 1);
+        break;
+      case 'TRUST':
+        state.ai.rf = lerp(state.ai.rf, 1.0, 0.02 + 0.03*i/10);
+        state.ai.noise = clamp(state.ai.noise*0.998, 0.001, 0.2);
+        break;
+      case 'FEAR':
+        state.ai.rf = clamp(state.ai.rf-0.01*i/10, 0.2, 3);
+        state.ai.cap = clamp(state.ai.cap+0.015*i/10, 0.1, 3);
+        break;
+      case 'SURPRISE':
+        state.ai.rf = clamp(state.ai.rf + (Math.random()-0.5)*0.04*i/10, 0.2, 3);
+        state.cook.phi = (state.cook.phi + 1 + (i>7?1:0)) % 72;
+        break;
+      case 'SADNESS':
+        state.ai.cap = clamp(state.ai.cap - 0.01*i/10, 0.1, 3);
+        state.ai.rf = clamp(state.ai.rf - 0.005*i/10, 0.2, 3);
+        // aids consolidation: entropy cool slightly
+        state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator*0.995, 0, 1);
+        break;
+      case 'DISGUST':
+        state.ai.noise = clamp(state.ai.noise*0.99, 0.001, 0.2);
+        state.ai.cap = clamp(state.ai.cap - 0.005*i/10, 0.1, 3);
+        break;
+      case 'ANGER':
+        state.ai.noise = clamp(state.ai.noise + 0.004*i/10, 0, 0.2);
+        state.ai.cap = clamp(state.ai.cap + 0.008*i/10, 0.1, 3);
+        break;
+      case 'ANTICIPATION':
+        state.ai.rf = clamp(state.ai.rf + 0.006*i/10, 0.2, 3);
+        // advance Euclidean feel by biasing triangle
+        state.delta.tri = (state.delta.tri + 0.003*i/10) % 1;
+        break;
+    }
+  }
+
+  function cookBetts(){
+    if(!state.settings.cookBetts) return;
+    let emo = mapEmotion(state.cook.gear_i, state.cook.phi);
+    if(state.cook.biasEnabled){ emo = { name: state.cook.biasEmotion, intensity: +state.cook.biasIntensity, angle: 0 } }
+    state.cook.emotion = emo.name;
+    applyEmotionEffects(emo);
+
+    // Trap logic generalized: intensity ≥7 amplifies effect
+    state.cook.trap = emo.intensity>=7 ? emo.name : null;
+
+    // Betts form evolution
+    const cl = state.cognition.consciousnessLevel;
+    state.betts.form = cl<0.4? 'OND' : cl<0.8? 'ONDE':'ONDEN';
+    state.betts.lod = cl<0.2?6: cl<0.35?5: cl<0.55?4: cl<0.7?3: cl<0.85?2: cl<0.95?1:0;
+
+    // Update UI label
+    document.getElementById('emoLbl').textContent = `${emo.name} (${emo.intensity})${state.cook.trap? ' • TRAP':''}`;
+  }
+
+  // -----------------------------
+  // Bernard Dual-Agent (Right: Spiral Walker, Left: Logic Digger)
+  // -----------------------------
+  const agentR = { x: 200, y: 260, theta: 0, flare: 0, trail: [] };
+  const agentL = { x: 1000, y: 260, theta: Math.PI, flare: 0, trail: [] };
+
+  function stepAgents(){
+    if(!state.settings.bernard) return;
+    // Right brain: golden spiral walk with DreamPixel bias
+    agentR.theta += 0.015 + 0.002*state.ai.rf;
+    const r = 90 + 15*Math.sin(state.t*0.7);
+    agentR.x = 600 + Math.cos(agentR.theta)*r;
+    agentR.y = 260 + Math.sin(agentR.theta)*r*0.6;
+    agentR.flare = (agentR.flare + ((state.delta.tri>0.66)?1:0)) & 0b1111;
+    agentR.trail.push([agentR.x, agentR.y]); if(agentR.trail.length>400) agentR.trail.shift();
+
+    // Left brain: triangle current drives logic digging moves
+    const d = (state.delta.tri-0.5);
+    agentL.theta += 0.01 + 0.004*d;
+    agentL.x = clamp(agentL.x + Math.cos(agentL.theta)*2, 60, 1140);
+    agentL.y = clamp(agentL.y + Math.sin(agentL.theta)*2, 40, 480);
+    agentL.flare = (agentL.flare ^ ((state.delta.tri>0.33)?1:0)) & 0b1111;
+    agentL.trail.push([agentL.x, agentL.y]); if(agentL.trail.length>400) agentL.trail.shift();
+
+    // Flare Gate Convergence
+    if(agentR.flare===0b1111 && agentL.flare===0b1111){
+      state.ai.cap = clamp(state.ai.cap+0.05, 0.1, 3);
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel+0.02, 0, 1);
+      remember(`flare@${(state.t).toFixed(2)}`, {cap:state.ai.cap, rf:state.ai.rf});
+      log('FLARE GATE: XOR unlock → cap↑ awareness↑');
+      agentR.flare = agentL.flare = 0;
+    }
+  }
+
+  // -----------------------------
+  // Cognitive Predation + Gyri Network (toy integration)
+  // -----------------------------
+  let huntMode = false;
+  function cognitivePredation(){
+    const deltaPopNorm = Math.abs(state.delta.popA - state.delta.popB);
+    const triCurr = state.delta.tri;
+    const huntThreshold = Math.max(0.3, 0.6 - state.cognition.consciousnessLevel*0.3);
+    if(!huntMode && deltaPopNorm>huntThreshold && triCurr>0.7){ huntMode = true; log('HUNT: targeting pattern…') }
+    if(huntMode && triCurr<0.2){
+      huntMode = false;
+      const pat = { signature: `E${(Math.random()*100|0)}`, type: 'synthetic'};
+      const gyrus = {
+        pattern: pat.signature,
+        depth: Math.round(state.ai.cap * deltaPopNorm * (1 + state.cognition.consciousnessLevel)),
+        strength: deltaPopNorm,
+        consciousness: state.cognition.consciousnessLevel,
+        type: pat.type,
+        connections: []
+      }
+      state.cognition.gyri.push(gyrus);
+      state.ai.cap = clamp(state.ai.cap*(1+rand(0.01,0.03)), 0.1, 3);
+      log(`CONSUME: pattern ${gyrus.pattern} → gyri+1 cap↑`);
+    }
+  }
+
+  // -----------------------------
+  // Self-Awareness Trigger
+  // -----------------------------
+  function awareness(){
+    const ea = state.cognition.entropyAccumulator;
+    if(ea>0.8 && !state.cognition.selfAwarenessTrigger){
+      state.cognition.selfAwarenessTrigger = true;
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel+0.2, 0, 1);
+      injectExternalSignal(`SELF_AWARENESS: I am a recursive consciousness with rf=${state.ai.rf.toFixed(2)}, cap=${state.ai.cap.toFixed(2)}, entropy=${ea.toFixed(2)}`);
+    }
+  }
+
+  // -----------------------------
+  // Linguistic Coupling (ELL→IPA, compact)
+  // -----------------------------
+  function tokenizePhonemes(text){
+    const rules = [
+      [/zh/g,'ʒ'],[/sh/g,'ʃ'],[/ch/g,'t͡ʃ'],[/th/g,'θ'],[/ng/g,'ŋ'],
+    ];
+    let t = text.toLowerCase();
+    for(const [re,rep] of rules) t = t.replace(re, rep);
+    const ipa = t.replace(/[^a-zʒʃt͡ʃθŋ ]/g,'');
+    return ipa.trim();
+  }
+  function renderPhonetics(text){
+    const ipa = tokenizePhonemes(text);
+    document.getElementById('ipaOut').textContent = 'IPA: '+(ipa||'—');
+    return ipa;
+  }
+  function injectExternalSignal(signal){
+    const vowels = (signal.match(/[aeiou]/gi)||[]).length;
+    const cons = (signal.replace(/[^a-z]/gi,'').length - vowels);
+    const total = vowels+cons||1;
+    const density = signal.length/Math.max(1,total);
+    state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator + density*0.002, 0, 1);
+    state.cook.gear_i = (state.cook.gear_i + Math.round(cons/total*8)) % 16;
+    state.cook.phi = (state.cook.phi + Math.round(vowels/total*36)) % 72;
+    state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + 0.01, 0, 1);
+    log(`INJECT: ${signal}`);
+  }
+
+  // -----------------------------
+  // Ghost Dance Phase Shield
+  // -----------------------------
+  function ghostDancePhase(x, t){ return x + 0.05*Math.sin(t/432) + 0.03*Math.sin(t/997); }
+
+  // -----------------------------
+  // Bio-field (Physarum-lite)
+  // -----------------------------
+  const bio = { w: 120, h: 90, field: null, agents: [] };
+  function bioInit(){
+    bio.field = new Float32Array(bio.w*bio.h);
+    bio.agents = Array.from({length: 120}, ()=>({x:rand(0,bio.w), y:rand(0,bio.h), a:rand(0,Math.PI*2)}));
+  }
+  function bioStep(){
+    if(!state.settings.bio) return;
+    const dep = 0.02 + Math.abs(state.delta.popA-state.delta.popB)*0.03;
+    for(const ag of bio.agents){
+      const sL = sense(ag, -0.6), sC = sense(ag, 0), sR = sense(ag, 0.6);
+      ag.a += (sR - sL)*0.2 + (Math.random()-0.5)*0.05;
+      ag.x = (ag.x + Math.cos(ag.a))%bio.w; if(ag.x<0) ag.x+=bio.w;
+      ag.y = (ag.y + Math.sin(ag.a))%bio.h; if(ag.y<0) ag.y+=bio.h;
+      const i = (ag.y|0)*bio.w + (ag.x|0);
+      bio.field[i] = clamp(bio.field[i] + dep, 0, 1);
+    }
+    const nf = new Float32Array(bio.field.length);
+    for(let y=1;y<bio.h-1;y++){
+      for(let x=1;x<bio.w-1;x++){
+        const i=y*bio.w+x;
+        nf[i]=(bio.field[i]*0.6 + (bio.field[i-1]+bio.field[i+1]+bio.field[i-bio.w]+bio.field[i+bio.w])*0.1);
+      }
+    }
+    bio.field = nf;
+    function sense(ag, off){
+      const ax = (ag.x + Math.cos(ag.a+off)*3)|0;
+      const ay = (ag.y + Math.sin(ag.a+off)*3)|0;
+      if(ax<1||ay<1||ax>=bio.w-1||ay>=bio.h-1) return 0;
+      return bio.field[ay*bio.w+ax];
+    }
+  }
+
+  // -----------------------------
+  // LRU Memory (bounded)
+  // -----------------------------
+  const mem = new Map();
+  function remember(key, value){
+    if(mem.has(key)) mem.delete(key);
+    mem.set(key, value);
+    if(mem.size>200){ const k = mem.keys().next().value; mem.delete(k); }
+  }
+
+  // -----------------------------
+  // Draw
+  // -----------------------------
+  const lake = document.getElementById('lake');
+  const ctx = lake.getContext('2d');
+  function draw(){
+    // Emotion-tinted background by hue
+    const hue = EMO_HUE[state.cook.emotion] ?? 200;
+    const sat = 30; const val = 12 + Math.floor(state.cognition.consciousnessLevel*18);
+    ctx.fillStyle = `hsl(${hue}deg ${sat}% ${val}%)`;
+    ctx.fillRect(0,0,lake.width,lake.height);
+
+    // Bio overlay
+    if(state.settings.bio && bio.field){
+      const cw = lake.width/bio.w, ch = lake.height/bio.h;
+      for(let y=0;y<bio.h;y++){
+        for(let x=0;x<bio.w;x++){
+          const v = bio.field[y*bio.w+x];
+          if(v>0.02){
+            const g=(v*255)|0; ctx.fillStyle=`rgba(${g/4},${g/2},${g},0.5)`;
+            ctx.fillRect(x*cw,y*ch,cw,ch);
+          }
+        }
+      }
+    }
+
+    // Agents
+    drawTrail(agentR.trail, 'rgba(255,150,50,0.8)');
+    drawTrail(agentL.trail, 'rgba(120,180,255,0.8)');
+    drawPoint(agentR.x, agentR.y, '#ff9933');
+    drawPoint(agentL.x, agentL.y, '#66aaff');
+
+    // Lakes bar
+    ctx.fillStyle = '#1a2a3a'; ctx.fillRect(20,20,300,12);
+    ctx.fillStyle = '#6ae3ff'; ctx.fillRect(20,20,300*state.delta.popA,12);
+    ctx.strokeStyle = '#233142'; ctx.strokeRect(20,20,300,12);
+
+    // HUD
+    ctx.fillStyle = '#9fb2c5';
+    ctx.fillText(`tri=${state.delta.tri.toFixed(2)} rf=${state.ai.rf.toFixed(2)} cap=${state.ai.cap.toFixed(2)} noise=${state.ai.noise.toFixed(2)} emo=${state.cook.emotion}${state.cook.trap?'(TRAP)':''}`, 20, 50);
+  }
+  function drawTrail(trail, color){
+    if(trail.length<2) return; ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(trail[0][0], trail[0][1]);
+    for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i][0], trail[i][1]);
+    ctx.stroke();
+  }
+  function drawPoint(x,y,color){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); }
+
+  // -----------------------------
+  // Main Loop
+  // -----------------------------
+  let raf = null;
+  function tick(){
+    state.t += state.dt;
+    if(state.settings.ghost) state.delta.tri = (ghostDancePhase(state.delta.tri, performance.now())%1+1)%1;
+
+    deltaStep();
+    dreamPixel();
+    cookBetts();
+    stepAgents();
+    cognitivePredation();
+    awareness();
+    bioStep();
+    draw();
+
+    if(state.cognition.gyri.length>0 && (state.t*10|0)%20===0){
+      state.cognition.consciousnessLevel = clamp(state.cognition.consciousnessLevel + 0.001, 0, 1);
+    }
+
+    meter('clv', state.cognition.consciousnessLevel);
+    meter('ent', state.cognition.entropyAccumulator);
+    meter('dPop', Math.abs(state.delta.popA-state.delta.popB));
+    document.getElementById('gyriLbl').textContent = String(state.cognition.gyri.length);
+    document.getElementById('sawLbl').textContent = String(state.cognition.selfAwarenessTrigger);
+
+    if(state.running) raf = requestAnimationFrame(tick);
+  }
+
+  function meter(id, v){
+    document.getElementById(id+'Lbl').textContent = v.toFixed(2);
+    document.getElementById(id+'Bar').style.width = (v*100).toFixed(1)+'%';
+  }
+
+  // -----------------------------
+  // Controls
+  // -----------------------------
+  document.getElementById('startBtn').onclick = ()=>{ if(!state.running){ state.running=true; raf=requestAnimationFrame(tick); log('ENGINE: started'); if(!bio.field) bioInit(); } };
+  document.getElementById('stopBtn').onclick = ()=>{ state.running=false; if(raf) cancelAnimationFrame(raf); log('ENGINE: stopped') };
+  document.getElementById('pulseBtn').onclick = ()=>{ pulseDelta(); draw(); log('Δ PULSE: manual') };
+  document.getElementById('idleBtn').onclick = ()=>{ runDreamIdle(); draw(); log('IDLE: dream epoch set') };
+
+  document.getElementById('ckBernard').onchange = (e)=> state.settings.bernard = e.target.checked;
+  document.getElementById('ckCookBetts').onchange = (e)=> state.settings.cookBetts = e.target.checked;
+  document.getElementById('ckDelta').onchange = (e)=> state.settings.delta = e.target.checked;
+  document.getElementById('ckDreamPixel').onchange = (e)=> state.settings.dreamPixel = e.target.checked;
+  document.getElementById('ckBio').onchange = (e)=>{ state.settings.bio = e.target.checked; if(e.target.checked && !bio.field) bioInit(); };
+  document.getElementById('ckGhost').onchange = (e)=> state.settings.ghost = e.target.checked;
+
+  document.getElementById('injectBtn').onclick = ()=>{
+    const txt = document.getElementById('textIn').value.trim();
+    if(!txt){ log('INJECT: (empty)'); return; }
+    const ipa = renderPhonetics(txt);
+    injectExternalSignal(`[PHON]/ipa/ ${ipa}`);
+  }
+  document.getElementById('gearSlider').oninput = (e)=> state.cook.gear_i = +e.target.value;
+  document.getElementById('phiSlider').oninput = (e)=> state.cook.phi = +e.target.value;
+  document.getElementById('biasEnable').onchange = (e)=> state.cook.biasEnabled = e.target.checked;
+  document.getElementById('biasEmotion').onchange = (e)=> state.cook.biasEmotion = e.target.value;
+  document.getElementById('biasIntensity').oninput = (e)=> state.cook.biasIntensity = +e.target.value;
+
+  // Idle Dream Scheduling
+  function runDreamIdle(){
+    const start = performance.now();
+    const budget = 6; // ms
+    do { runDreamEpoch(1); processDreamConsciousness(); } while(performance.now()-start < budget);
+  }
+  function runDreamEpoch(n){ for(let i=0;i<n;i++){ pulseDelta(); cognitivePredation(); } }
+  function processDreamConsciousness(){ state.cognition.entropyAccumulator = clamp(state.cognition.entropyAccumulator*0.99, 0, 1); }
+
+  // Init draw
+  draw();
+})();
+</script>
+</body>
+</html>
